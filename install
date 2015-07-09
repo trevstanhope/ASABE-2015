@@ -1,0 +1,6 @@
+#!/bin/sh
+apt-get update
+apt-get upgrade -y
+apt-get install python-dev python-setuptools -y
+apt-get install python-opencv python-zmq python-serial python-cherrypy3 
+apt-get install arduino arduino-mk
