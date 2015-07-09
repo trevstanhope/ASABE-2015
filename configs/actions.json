@@ -1,0 +1,30 @@
+{
+    "start" : {
+        "description" : "Navigate to the first row",
+        "command" : "A"
+    },
+    "align" : {
+        "description" : "Align at beginning of row",
+        "command" : "B"
+    },
+    "seek" : {
+        "description" : "Seek for either a plant or end of the row",
+        "command" : "C"
+    },
+    "grab" : {
+        "description" : "Grab the current block",
+        "command" : "D"
+    },
+    "turn" : {
+        "description" : "Turn around",
+        "command" : "E"
+    },
+    "jump" : {
+        "description" : "Jump to the next row",
+        "command" : "F"
+    },
+    "stop" : {
+        "description" : "Do not move",
+        "command" : "G"
+    }
+}

@@ -1,0 +1,7 @@
+{
+    "ZMQ_ADDR" : "tcp://*:1980",
+    "ARDUINO_DEV" : "/dev/ttyACM0",
+    "ARDUINO_BAUD" : 9600,
+    "ARDUINO_TIMEOUT" : 1,
+    "CAMERA_INDEX" : 0
+}
