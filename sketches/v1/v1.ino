@@ -35,7 +35,7 @@ void setup() {
   pinMode(CENTER_LINE_PIN, INPUT);
   pinMode(RIGHT_LINE_PIN, INPUT);
   pinMode(LEFT_LINE_PIN, INPUT);
-  pinMode(LASER_DIST_PIN, INPUT);
+  pinMode(LASER_DIST_PIN, INPUT); digitalWrite(LASER_DIST_PIN, LOW);
   pwm.begin();
   pwm.setPWMFreq(PWM_FREQ);  // This is the maximum PWM frequency
 }
@@ -50,8 +50,9 @@ void loop() {
   int center_ref = analogRead(CENTER_LINE_PIN);
   int left_ref = analogRead(LEFT_LINE_PIN);
   int right_ref = analogRead(RIGHT_LINE_PIN);
+  int dist_ref = analogRead(LASER_DIST_PIN);
  
-  Serial.println(center_ref);
+  Serial.println(dist_ref);
 }
 /* --- Actions --- */
 int begin(void) {
