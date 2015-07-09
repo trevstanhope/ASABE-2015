@@ -61,6 +61,7 @@ class Robot:
             self.poller.register(self.socket, zmq.POLLIN)
         except Exception as e:
             self.pretty_print('ZMQ', 'Error: %s' % str(e))
+            exit(1)
     
     ## Initialize Arduino
     def init_arduino(self):
@@ -68,6 +69,7 @@ class Robot:
             self.arduino = Serial(self.ARDUINO_DEV, self.ARDUINO_BAUD, timeout=self.ARDUINO_TIMEOUT)
         except Exception as e:
             self.pretty_print('CTRL', 'Error: %s' % str(e))
+            exit(1)
     
     ## Initialize camera
     def init_cam(self):
@@ -75,6 +77,7 @@ class Robot:
             self.camera = cv2.VideoCapture(self.CAMERA_INDEX)
         except Exception as e:
             self.pretty_print('CAM', 'Error: %s' % str(e))
+            exit(1)
 
     ## Capture image
     def capture_image(self, n_flush=30):
@@ -83,11 +86,11 @@ class Robot:
         return bgr
  
    ## Send request to server
-    def request(self):
+    def request_action(self):
         self.pretty_print('ZMQ', 'Pushing request to server')
         try:
             request = {
-                'type' : 'request'
+                'type' : 'request',
                 'last_action' : self.last_action
             }
             dump = json.dumps(request)
@@ -98,16 +101,17 @@ class Robot:
                     dump = self.socket.recv(zmq.NOBLOCK)
                     response = json.loads(dump)
                     self.pretty_print('ZMQ', str(response))
-                    return response
+                    action = request['action']
+                    return action
                 else:
                     self.pretty_print('ZMQ', 'Error: Poll Timeout')
             else:
                 self.pretty_print('ZMQ', 'Error: Socket Timeout')
         except Exception as e:
-            self.pretty_print('ZMQ', 'Error: %s' % str(e))
+            raise e
 
     ## Exectute robotic action
-    def execute(self, command):
+    def execute_action(self, command):
         self.pretty_print('CTRL', 'Interacting with controller ...')
         try:
             self.arduino.write(command + '\n') # send command
@@ -126,11 +130,13 @@ class Robot:
         self.at_end = False
         while True:
             try:
-                action = self.request()
-                status = self.execute(action) #!TODO need to handle different responses
-                bgr = self.capture_image()
+                action = self.request_action()
+                if action:
+                    status = self.execute_action(action) #!TODO need to handle different responses
+                    bgr = self.capture_image()
             except Exception as e:
                 self.pretty_print('RUN', 'Error: %s' % str(e))
+                break
 
 if __name__ == '__main__':
     robot = Robot(CONFIG_PATH)

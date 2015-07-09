@@ -1,6 +1,14 @@
 #!/bin/sh
+
+# Package Dependencies
 apt-get update
 apt-get upgrade -y
-apt-get install python-dev python-setuptools -y
-apt-get install python-opencv python-zmq python-serial python-cherrypy3 
-apt-get install arduino arduino-mk
+apt-get install python-dev python-setuptools python-pip -y
+apt-get install python-opencv python-zmq python-serial python-cherrypy3 -y
+apt-get install arduino arduino-mk -y
+apt-get install mongodb  -y
+pip install pymongo --upgrade
+
+# Arduino Libraries
+cd libs
+cp -r * /usr/share/arduino/libraries
