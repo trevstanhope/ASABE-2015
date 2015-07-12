@@ -5,7 +5,7 @@ ASABE 2015
 """
 
 __author__ = 'Trevor Stanhope'
-__version__ = '0.2'
+__version__ = '0.2b'
 
 # Libraries
 import json
