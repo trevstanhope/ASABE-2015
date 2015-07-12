@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 """
-
+McGill University
+ASABE 2015
 """
+
+__author__ = 'Trevor Stanhope'
+__version__ = '0.2'
 
 # Libraries
 import json
@@ -17,15 +21,19 @@ from pymongo import MongoClient
 from bson import json_util
 import zmq
 import cv2, cv
+import pygtk
+pygtk.require('2.0')
+import gtk
+import matplotlib.pyplot as mpl
 
-# Constants
+# Configuration
 try:
     CONFIG_PATH = sys.argv[1]
 except Exception as err:
     print "NO CONFIGURATION FILE GIVEN"
     exit(1)
 
-# CherryPy server
+# CherryPy3 server
 class Server:
     
     ## Initialize
@@ -35,17 +43,18 @@ class Server:
         self.load_config(config_path)
         
         # Initializers
-        self.init_zmq()
-        self.init_tasks()
-        self.init_mongo()
+        self.__init_zmq__()
+        self.__init_tasks__()
+        self.__init_mongo__()
+        self.__init_gui__()
 
-    ## Pretty Print
+    ## Useful Functions
     def pretty_print(self, task, msg):
+        """ Pretty Print """ 
         date = datetime.strftime(datetime.now(), '%d/%b/%Y:%H:%M:%S')
         print('[%s] %s\t%s' % (date, task, msg))
-
-    ## Load Configuration
     def load_config(self, config_path):
+        """ Load Configuration """
         self.pretty_print('CONFIG', 'Loading Config File')
         with open(config_path) as config:
             settings = json.loads(config.read())
@@ -54,44 +63,14 @@ class Server:
                     getattr(self, key)
                 except AttributeError as error:
                     setattr(self, key, settings[key])
-    
-    ## Initialize ZMQ
-    def init_zmq(self):      
-        self.pretty_print('ZMQ', 'Initializing ZMQ')
-        try:
-            self.context = zmq.Context()
-            self.socket = self.context.socket(zmq.REP)
-            self.socket.bind(self.ZMQ_HOST)
-        except Exception as error:
-            self.pretty_print('ZMQ', str(error))
-    
-    ## Initialize Tasks
-    def init_tasks(self):
-        self.pretty_print('CHERRYPY', 'Initializing Monitors')
-        try:
-            Monitor(cherrypy.engine, self.listen, frequency=self.CHERRYPY_LISTEN_INTERVAL).subscribe()
-        except Exception as error:
-            self.pretty_print('CHERRYPY', str(error))
-    
-    ## Initialize MongoDB
-    def init_mongo(self):
+         
+    ## Mongo Functions
+    def __init_mongo__(self):
         self.pretty_print('MONGO', 'Initializing Mongo')
         try:
             self.mongo_client = MongoClient(self.MONGO_ADDR, self.MONGO_PORT)
         except Exception as error:
             self.pretty_print('MONGO', 'Error: %s' % str(error))
-       
-    ## Receive Sample
-    def receive_request(self):
-        self.pretty_print('ZMQ', 'Receiving request')
-        try:
-            packet = self.socket.recv()
-            request = json.loads(packet)
-            return request
-        except Exception as error:
-            self.pretty_print('ZMQ', 'Error: %s' % str(error))
-            
-    ## Store Sample
     def store_event(self, request, response, collection_name=''):
         self.pretty_print('MONGO', 'Storing Sample')
         try:
@@ -109,9 +88,26 @@ class Server:
             return str(event_id)
         except Exception as error:
             self.pretty_print('MONGO', 'Error: %s' % str(error))
-
-    ## Send Response
+       
+    ## ZMQ Functions
+    def __init_zmq__(self):      
+        self.pretty_print('ZMQ', 'Initializing ZMQ')
+        try:
+            self.context = zmq.Context()
+            self.socket = self.context.socket(zmq.REP)
+            self.socket.bind(self.ZMQ_HOST)
+        except Exception as error:
+            self.pretty_print('ZMQ', str(error))
+    def receive_request(self):
+        self.pretty_print('ZMQ', 'Receiving request')
+        try:
+            packet = self.socket.recv()
+            request = json.loads(packet)
+            return request
+        except Exception as error:
+            self.pretty_print('ZMQ', 'Error: %s' % str(error))
     def send_response(self, action):
+        """ Send Response """
         if self.VERBOSE: self.pretty_print('ZMQ', 'Sending Response to Robot')
         try:
             response = {
@@ -125,6 +121,7 @@ class Server:
         except Exception as error:
             self.pretty_print('ZMQ', str(error))   
     
+    ## Phenotyping Functions
     def decide_action(self, request):
         """
         Below is the Pseudocode for how the decisions are made:
@@ -150,7 +147,9 @@ class Server:
         """
         last_action = request['last_action']
         self.pretty_print("DECIDE", "Last Action: %s" % last_action)
-        if last_action == None:
+        if self.running == False:
+            action = 'wait'        
+        elif last_action == None:
             action = 'begin'
             self.row = 0
             self.plant = 0
@@ -193,9 +192,6 @@ class Server:
         else:
             action = 'finish'
         return action
-        
-
-    ## Identify Plant
     def identify_plant(self, bgr):
         """
         color : green, yellow, brown
@@ -211,33 +207,134 @@ class Server:
             self.collected_plants[color][height] = True # set to true
         return color, height, is_new
         
-    ## Listen for Next Sample
+    ## CherryPy Functions
+    def __init_tasks__(self):
+        self.pretty_print('CHERRYPY', 'Initializing Monitors')
+        try:
+            Monitor(cherrypy.engine, self.listen, frequency=self.CHERRYPY_LISTEN_INTERVAL).subscribe()
+            Monitor(cherrypy.engine, self.refresh, frequency=self.CHERRYPY_REFRESH_INTERVAL).subscribe()
+        except Exception as error:
+            self.pretty_print('CHERRYPY', str(error))
     def listen(self):
+        """ Listen for Next Sample """
+        self.gui.update_gui()
         self.pretty_print('CHERRYPY', 'Listening for nodes')
         req = self.receive_request()
         action = self.decide_action(req)
         resp = self.send_response(action)
         event_id = self.store_event(req, resp)
-    """
-    Handler Functions
-    """
-    ## Render Index
+    def refresh(self):
+        """ Update the GUI """
+        self.gui.update_gui()
+        self.gui.show_board()
     @cherrypy.expose
     def index(self):
+        """ Render index page """
         html = open('static/index.html').read()
         return html
-    
-    ## Handle Posts
-    """
-    This function is basically the API
-    """
     @cherrypy.expose
     def default(self, *args, **kwargs):
+        """
+        Handle Posts -
+        This function is basically the RESTful API
+        """
         try:
+
             pass
         except Exception as err:
             self.pretty_print('ERROR', str(err))
         return None
+
+    ## GUI Functions
+    def __init_gui__(self):
+        if self.VERBOSE: self.pretty_print('CHERRYPY', 'Initializing Monitors')
+        try:
+            self.gui = GUI(self)
+            self.running= False
+        except Exception as error:
+            self.pretty_print('CHERRYPY', str(error))
+    def run(self, object):
+        self.pretty_print("GUI", "Running session ...")
+        self.running = True
+    def stop(self, object):
+        self.pretty_print("GUI", "Halting session ...")
+        self.running = False
+    def reset(self, object):
+        self.pretty_print("GUI", "Resetting to start ...")
+        pass
+    def shutdown(self, object):
+        self.pretty_print("GUI", "Executing reboot ...")
+        pass
+    def close(self, widget, window):
+        try:
+            gtk.main_quit()
+        except Exception as e:
+            self.pretty_print('GUI', 'Console server is still up (CTRL-D to exit)')
+# Display
+import pygtk
+pygtk.require('2.0')
+import gtk
+import matplotlib.pyplot as mpl
+class GUI(object):
+
+    ## Initialize Display
+    def __init__(self, object, window_x=640, window_y=180):
+        """
+        Requires super-object to have several handler functions:
+            - shutdown()
+            - close()
+            - reset()
+            - run()
+        """
+        try:
+            ###
+            self.X_SIZE = object.WINDOW_X
+            self.Y_SIZE = object.WINDOW_Y
+            ### Window
+            self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+            self.window.set_size_request(480, 120)
+            self.window.connect("delete_event", object.close)
+            self.window.set_border_width(10)
+            self.window.show()
+            self.hbox = gtk.HBox(False, 0)
+            self.hbox.show()
+            self.window.add(self.hbox)
+            ### Run Button
+            self.button_run = gtk.Button("Run")
+            self.button_run.connect("clicked", object.run)
+            self.hbox.pack_start(self.button_run, True, True, 0)
+            self.button_run.show()
+            ### Stop Button
+            self.button_stop = gtk.Button("Stop")
+            self.button_stop.connect("clicked", object.stop)
+            self.hbox.pack_start(self.button_stop, True, True, 0)
+            self.button_stop.show()
+            ### Reset Button
+            self.button_reset = gtk.Button("Reset")
+            self.button_reset.connect("clicked", object.reset)
+            self.hbox.pack_start(self.button_reset, True, True, 0)
+            self.button_reset.show()
+            ### Shutdown Button
+            self.button_shutdown = gtk.Button("Shutdown")
+            self.button_shutdown.connect("clicked", object.shutdown)
+            self.hbox.pack_start(self.button_shutdown, True, True, 0)
+            self.button_shutdown.show()
+        except Exception as e:
+            raise e
+    
+    ## Update GUI
+    def update_gui(self):
+        while gtk.events_pending():
+            gtk.main_iteration_do(False)
+    
+    ## Show Board
+    def show_board(self, img_path='static/board.jpg'):
+        try:
+            board = cv2.imread(img_path)
+            (w,h,d) = board.shape
+            #!TODO draw board
+        except Exception as e:
+            raise e
 
 # Main
 if __name__ == '__main__':
