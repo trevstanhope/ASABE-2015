@@ -1,0 +1,31 @@
+{
+    "VERBOSE" : false,
+    "CHERRYPY_ADDR" : "127.0.0.1",
+    "CHERRYPY_PORT" : 8080,
+    "CHERRYPY_STATIC_DIR" : "static",
+    "CHERRYPY_DATA_DIR" : "data",
+    "CHERRYPY_LISTEN_INTERVAL" : 1,
+    "MONGO_ADDR" : "127.0.0.1",
+    "MONGO_PORT" : 27017,
+    "MONGO_DB" : "test",
+    "MONGO_COL" : "%m_%d_%H_%M",
+    "ZMQ_HOST" : "tcp://*:1980",
+    "ZMQ_ADDR" : "tcp://192.168.0.100:1980",
+    "ZMQ_TIMEOUT" : 1000,
+    "TIME_FORMAT" : "%Y-%m-%d %H:%M:%S",
+    "NUM_PLANTS" : 20,
+    "NUM_ROWS" : 8,
+    "ARDUINO_DEV" : "/dev/ttyACM0",
+    "ARDUINO_BAUD" : 9600,
+    "ARDUINO_TIMEOUT" : 1,
+    "CAMERA_INDEX" : 0,
+    "ACTIONS" : {
+        "begin" : "B",
+        "align" : "A",
+        "seek" : "S",
+        "grab" : "G",
+        "turn" : "T",
+        "jump" : "J",
+        "finish" : "F"
+    }
+}
