@@ -1,8 +1,0 @@
-{
-    "ZMQ_ADDR" : "tcp://*:1980",
-    "ZMQ_TIMEOUT" : 5,
-    "ARDUINO_DEV" : "/dev/ttyUSB0",
-    "ARDUINO_BAUD" : 9600,
-    "ARDUINO_TIMEOUT" : 1,
-    "CAMERA_INDEX" : 0
-}

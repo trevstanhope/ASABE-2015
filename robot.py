@@ -11,6 +11,7 @@ import ast
 import json
 import os
 import sys
+import time
 import numpy as np
 from datetime import datetime
 from serial import Serial, SerialException
@@ -65,6 +66,7 @@ class Robot:
     
     ## Initialize Arduino
     def init_arduino(self):
+        if self.VERBOSE: self.pretty_print("CTRL", "Initializing Arduino ...")        
         try:
             self.arduino = Serial(self.ARDUINO_DEV, self.ARDUINO_BAUD, timeout=self.ARDUINO_TIMEOUT)
         except Exception as e:
@@ -73,6 +75,7 @@ class Robot:
     
     ## Initialize camera
     def init_cam(self):
+        if self.VERBOSE: self.pretty_print("CTRL", "Initializing Cameras ...")
         try:
             self.camera = cv2.VideoCapture(self.CAMERA_INDEX)
         except Exception as e:
@@ -81,18 +84,20 @@ class Robot:
 
     ## Capture image
     def capture_image(self, n_flush=30):
+        if self.VERBOSE: self.pretty_print("CTRL", "Capturing image ...")
         for i in range(n_flush):
             (s, bgr) = self.camera.read()
         return bgr
  
-   ## Send request to server
+    ## Send request to server
     def request_action(self):
-        self.pretty_print('ZMQ', 'Pushing request to server')
+        if self.VERBOSE: self.pretty_print('ZMQ', 'Pushing request to server ...')
         try:
             request = {
                 'type' : 'request',
                 'last_action' : self.last_action
             }
+            self.pretty_print('ZMQ', 'Request: %s' % str(request))
             dump = json.dumps(request)
             self.socket.send(dump)
             socks = dict(self.poller.poll(self.ZMQ_TIMEOUT))
@@ -100,9 +105,13 @@ class Robot:
                 if socks.get(self.socket) == zmq.POLLIN:
                     dump = self.socket.recv(zmq.NOBLOCK)
                     response = json.loads(dump)
-                    self.pretty_print('ZMQ', str(response))
-                    action = request['action']
-                    return action
+                    self.pretty_print('ZMQ', 'Response: %s' % str(response))
+                    try:
+                        action = response['action']
+                        self.pretty_print('ZMQ', 'Action: %s' % str(action))
+                        return action
+                    except:
+                        return None
                 else:
                     self.pretty_print('ZMQ', 'Error: Poll Timeout')
             else:
@@ -111,16 +120,21 @@ class Robot:
             raise e
 
     ## Exectute robotic action
-    def execute_action(self, command):
-        self.pretty_print('CTRL', 'Interacting with controller ...')
+    def execute_command(self, action, attempts=5, wait=0.5):
+        if self.VERBOSE: self.pretty_print('CTRL', 'Interacting with controller ...')
         try:
-            self.arduino.write(command + '\n') # send command
-            while self.arduino.readline() == '': 
-                pass # wait for completion
+            command = self.ACTIONS[action]
+            self.pretty_print("CTRL", "Command: %s" % str(command))
+            self.arduino.write(str(command)) # send command
             string = self.arduino.readline()
+            while string == '':
+                time.sleep(wait)
+                string = self.arduino.readline()
             status = ast.literal_eval(string) # parse status response
+            self.pretty_print("CTRL", "Status: %s" % status)
+            self.last_action = action
             return status
-        except Exception as e:           
+        except Exception as e:
             self.pretty_print('CTRL', 'Error: %s' % str(e))
 
     ## Run
@@ -132,7 +146,7 @@ class Robot:
             try:
                 action = self.request_action()
                 if action:
-                    status = self.execute_action(action) #!TODO need to handle different responses
+                    status = self.execute_command(action) #!TODO handle different responses
                     bgr = self.capture_image()
             except Exception as e:
                 self.pretty_print('RUN', 'Error: %s' % str(e))

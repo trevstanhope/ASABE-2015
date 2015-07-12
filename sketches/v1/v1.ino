@@ -11,10 +11,11 @@ const int SEEK_COMMAND  = 'S';
 const int GRAB_COMMAND  = 'G';
 const int TURN_COMMAND  = 'T';
 const int JUMP_COMMAND  = 'J';
-const int FINISH_COMMAND  = 'E';
+const int FINISH_COMMAND  = 'F';
+const int REPEAT_COMMAND = 'R';
 
 /* --- Line Following --- */
-const int LINE_THRESHOLD = 800;
+const int LINE_THRESHOLD = 750;
 
 /* --- I/O Pins --- */
 const int CENTER_LINE_PIN = A0;
@@ -29,19 +30,14 @@ const int FRONT_LEFT_SERVO = 0;
 const int FRONT_RIGHT_SERVO = 1;
 const int BACK_LEFT_SERVO = 2;
 const int BACK_RIGHT_SERVO = 3;
-const int FRONT_LEFT_MIN = 300;
-const int FRONT_LEFT_OFF = 381; // this is the servo off pulse length
-const int FRONT_LEFT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
-const int FRONT_RIGHT_MIN = 300;
-const int FRONT_RIGHT_OFF = 378; // this is the servo off pulse length
-const int FRONT_RIGHT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
-const int BACK_LEFT_MIN = 300;
-const int BACK_LEFT_OFF = 378; // this is the servo off pulse length
-const int BACK_LEFT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
-const int BACK_RIGHT_MIN = 300;
-const int BACK_RIGHT_OFF = 378; // this is the servo off pulse length
-const int BACK_RIGHT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
+const int SERVO_MIN = 300;
+const int SERVO_OFF = 381; // this is the servo off pulse length
+const int SERVO_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
 const int PWM_FREQ = 60; // analog servos run at 60 Hz
+
+/* --- Variables --- */
+char command;
+int result;
 
 /* --- Buffers --- */
 char output[OUTPUT_LENGTH];
@@ -55,51 +51,61 @@ void setup() {
   pinMode(LASER_DIST_PIN, INPUT); digitalWrite(LASER_DIST_PIN, LOW);
   pwm.begin();
   pwm.setPWMFreq(PWM_FREQ);  // This is the maximum PWM frequency
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, FRONT_LEFT_OFF);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, FRONT_RIGHT_OFF);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, BACK_LEFT_OFF);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, BACK_RIGHT_OFF);
+  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
 }
 
 /* --- Loop --- */
 void loop() {
   if (Serial.available() > 0) {
-    char action = Serial.read();
-    switch (action) {
+    char val = Serial.read();
+    switch (val) {
       case BEGIN_COMMAND:
-        begin_run(); break;
+        command = BEGIN_COMMAND;
+        result = begin_run(); break;
       case ALIGN_COMMAND:
-        align(); break;
+        command = ALIGN_COMMAND;
+        result = align(); break;
       case SEEK_COMMAND:
-        seek_plant(); break;
+        command = SEEK_COMMAND;
+        result = seek_plant(); break;
       case GRAB_COMMAND:
-        grab(); break;
+        command = GRAB_COMMAND;
+        result = grab(); break;
       case TURN_COMMAND:
-        turn(); break;
+        command = TURN_COMMAND;
+        result = turn(); break;
       case JUMP_COMMAND:
-        jump(); break;
+        command = JUMP_COMMAND;
+        result = jump(); break;
       case FINISH_COMMAND:
-        finish_run(); break;
+        command = FINISH_COMMAND;
+        result = finish_run(); break;
+      case REPEAT_COMMAND:
+        break;
       default:
+        result = 255;
         break;
     }
-    //sprintf(output, "{'action':%s}", action);
-    //Serial.println(output);
-    //Serial.flush();
+    sprintf(output, "{'command':'%s','result':%d}", command, result);
+    Serial.println(output);
+    Serial.flush();
   }
 }
 
 /* --- Actions --- */
 int begin_run(void) {
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, FRONT_LEFT_MAX);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, FRONT_RIGHT_MIN);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, BACK_LEFT_MAX);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, BACK_RIGHT_MIN);
+  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_MAX);
+  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_MIN);
+  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_MAX);
+  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_MIN);
   delay(100);
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, FRONT_LEFT_OFF);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, FRONT_RIGHT_OFF);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, BACK_LEFT_OFF);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, BACK_RIGHT_OFF);
+  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
   return 0;
 }
 
@@ -108,18 +114,11 @@ int seek_plant(void) {
   int left_line = 0;
   int right_line = 0;
   while ((center_line < LINE_THRESHOLD) && (right_line < LINE_THRESHOLD)  && (left_line < LINE_THRESHOLD)) {
+    int dist_ref = analogRead(LASER_DIST_PIN);
     int center_line = analogRead(CENTER_LINE_PIN);
     int left_line = analogRead(LEFT_LINE_PIN);
     int right_line = analogRead(RIGHT_LINE_PIN);
-    Serial.print(left_line); Serial.print(' ');
-    Serial.print(center_line); Serial.print(' ');
-    Serial.print(right_line); Serial.println(' ');
-
-  }
-
-  
-  int dist_ref = analogRead(LASER_DIST_PIN);
-  
+  }  
   return 0;
 }
 

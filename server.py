@@ -42,7 +42,7 @@ class Server:
     ## Pretty Print
     def pretty_print(self, task, msg):
         date = datetime.strftime(datetime.now(), '%d/%b/%Y:%H:%M:%S')
-        print('[%s] %s %s' % (date, task, msg))
+        print('[%s] %s\t%s' % (date, task, msg))
 
     ## Load Configuration
     def load_config(self, config_path):
@@ -61,7 +61,7 @@ class Server:
         try:
             self.context = zmq.Context()
             self.socket = self.context.socket(zmq.REP)
-            self.socket.bind(self.ZMQ_ADDR)
+            self.socket.bind(self.ZMQ_HOST)
         except Exception as error:
             self.pretty_print('ZMQ', str(error))
     
@@ -95,13 +95,14 @@ class Server:
     def store_event(self, request, response, collection_name=''):
         self.pretty_print('MONGO', 'Storing Sample')
         try:
-            event['time'] = datetime.now()
-            db_name = datetime.strftime(datetime.now(), self.MONGO_DB) # this is the mongo db it saves to
-            mongo_db = self.mongo_client[db_name]
+            timestamp = datetime.strftime(datetime.now(), self.TIME_FORMAT)
+            collection_name = datetime.strftime(datetime.now(), self.MONGO_COL) # db to save to
+            mongo_db = self.mongo_client[self.MONGO_DB]
             collection = mongo_db[collection_name]
             event = {
                 'request' : request,
-                'response' : response
+                'response' : response,
+                'time' : timestamp
             } 
             event_id = collection.insert(event)
             self.pretty_print('MONGO', 'Sample ID: %s' % str(event_id))
@@ -111,7 +112,7 @@ class Server:
 
     ## Send Response
     def send_response(self, action):
-        self.pretty_print('ZMQ', 'Sending Response to Hive')
+        if self.VERBOSE: self.pretty_print('ZMQ', 'Sending Response to Robot')
         try:
             response = {
                 'type' : 'response',
@@ -119,7 +120,8 @@ class Server:
                 }
             dump = json.dumps(response)
             self.socket.send(dump)
-            self.pretty_print('ZMQ', str(response))
+            self.pretty_print('ZMQ', 'Response: %s' % str(response))
+            return response
         except Exception as error:
             self.pretty_print('ZMQ', str(error))   
     
@@ -146,9 +148,10 @@ class Server:
                         grab()
             jump()
         """
-        
-        if request['last_action'] == None:
-            action = 'start'
+        last_action = request['last_action']
+        self.pretty_print("DECIDE", "Last Action: %s" % last_action)
+        if last_action == None:
+            action = 'begin'
             self.row = 0
             self.plant = 0
             self.collected_plants = {
@@ -166,7 +169,7 @@ class Server:
                 }
             }
         elif (self.row < self.NUM_ROWS) and (self.plant < self.NUM_PLANTS):
-            if request['last_action'] == 'start':
+            if request['last_action'] == 'begin':
                 action = 'align'
             if request['last_action'] == 'align':
                 action = 'seek'
@@ -188,7 +191,7 @@ class Server:
             if request['last_action'] == 'jump':
                 action = 'align'
         else:
-            action = 'stop'
+            action = 'finish'
         return action
         
 
@@ -212,10 +215,9 @@ class Server:
     def listen(self):
         self.pretty_print('CHERRYPY', 'Listening for nodes')
         req = self.receive_request()
-        resp = self.decide_action(req)
+        action = self.decide_action(req)
+        resp = self.send_response(action)
         event_id = self.store_event(req, resp)
-        self.send_response(event_id)
-    
     """
     Handler Functions
     """
