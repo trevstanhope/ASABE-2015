@@ -15,7 +15,7 @@ import time
 import numpy as np
 from datetime import datetime
 from serial import Serial, SerialException
-import cv2
+import cv2, cv
 
 # Constants
 try:
@@ -65,10 +65,11 @@ class Robot:
             exit(1)
     
     ## Initialize Arduino
-    def init_arduino(self):
+    def init_arduino(self, wait=2.0):
         if self.VERBOSE: self.pretty_print("CTRL", "Initializing Arduino ...")        
         try:
             self.arduino = Serial(self.ARDUINO_DEV, self.ARDUINO_BAUD, timeout=self.ARDUINO_TIMEOUT)
+            time.sleep(wait)
         except Exception as e:
             self.pretty_print('CTRL', 'Error: %s' % str(e))
             exit(1)
@@ -78,6 +79,9 @@ class Robot:
         if self.VERBOSE: self.pretty_print("CTRL", "Initializing Cameras ...")
         try:
             self.camera = cv2.VideoCapture(self.CAMERA_INDEX)
+            self.camera.set(cv.CV_CAP_PROP_FRAME_WIDTH, self.CAMERA_WIDTH)
+            self.camera.set(cv.CV_CAP_PROP_FRAME_HEIGHT, self.CAMERA_HEIGHT)
+            self.camera.set(cv.CV_CAP_PROP_SATURATION, self.CAMERA_SATURATION)
         except Exception as e:
             self.pretty_print('CAM', 'Error: %s' % str(e))
             exit(1)
@@ -87,17 +91,23 @@ class Robot:
         if self.VERBOSE: self.pretty_print("CTRL", "Capturing image ...")
         for i in range(n_flush):
             (s, bgr) = self.camera.read()
-        return bgr
- 
+        if s:
+            return bgr
+        else:
+            return np.zeros((self.CAMERA_WIDTH, self.CAMERA_HEIGHT, 3))
+    
     ## Send request to server
-    def request_action(self):
+    def request_action(self, bgr, status):
         if self.VERBOSE: self.pretty_print('ZMQ', 'Pushing request to server ...')
         try:
+            last_action = [key for key, value in self.ACTIONS.iteritems() if value == status['command']][0]
             request = {
                 'type' : 'request',
-                'last_action' : self.last_action
+                'last_action' : last_action,
+                'at_end' : status['at_end'],
+                'at_plant' : status['at_plant'],
+                'bgr' : bgr.tolist()
             }
-            self.pretty_print('ZMQ', 'Request: %s' % str(request))
             dump = json.dumps(request)
             self.socket.send(dump)
             socks = dict(self.poller.poll(self.ZMQ_TIMEOUT))
@@ -120,17 +130,22 @@ class Robot:
             raise e
 
     ## Exectute robotic action
-    def execute_command(self, action, attempts=5, wait=0.5):
+    def execute_command(self, action, attempts=5, wait=2.0):
         if self.VERBOSE: self.pretty_print('CTRL', 'Interacting with controller ...')
         try:
             command = self.ACTIONS[action]
             self.pretty_print("CTRL", "Command: %s" % str(command))
             self.arduino.write(str(command)) # send command
-            string = self.arduino.readline()
-            while string == '':
-                time.sleep(wait)
-                string = self.arduino.readline()
-            status = ast.literal_eval(string) # parse status response
+            time.sleep(wait)
+            status = {}
+            while status == {}:
+                try:
+                    string = self.arduino.readline()
+                    status = ast.literal_eval(string) # parse status response
+                except Exception as e:
+                    self.pretty_print('CTRL', 'Error: %s (%s)' % (str(e), string))
+                    self.arduino.write(str(self.ACTIONS['repeat']))
+                    time.sleep(wait)
             self.pretty_print("CTRL", "Status: %s" % status)
             self.last_action = action
             return status
@@ -139,12 +154,15 @@ class Robot:
 
     ## Run
     def run(self):
-        self.last_action = None
-        self.at_plant = False
-        self.at_end = False
+        status = {
+            'at_plant' : False,
+            'at_end' : False,
+            'command' : '?',
+        }
+        bgr = np.zeros((self.CAMERA_WIDTH, self.CAMERA_HEIGHT, 3))
         while True:
             try:
-                action = self.request_action()
+                action = self.request_action(bgr, status)
                 if action:
                     status = self.execute_command(action) #!TODO handle different responses
                     bgr = self.capture_image()
