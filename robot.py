@@ -104,6 +104,7 @@ class Robot:
             request = {
                 'type' : 'request',
                 'last_action' : last_action,
+                'result' : status['result'],
                 'at_end' : status['at_end'],
                 'at_plant' : status['at_plant'],
                 'bgr' : bgr.tolist()
@@ -158,6 +159,7 @@ class Robot:
             'at_plant' : False,
             'at_end' : False,
             'command' : '?',
+            'result' : 255
         }
         bgr = np.zeros((self.CAMERA_WIDTH, self.CAMERA_HEIGHT, 3))
         while True:

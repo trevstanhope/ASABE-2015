@@ -128,6 +128,7 @@ class Server:
         self.row_num = 0
         self.plant_num = 0
         self.block_num = 0
+        self.observed_plants = []
         self.collected_plants = {
             'green' : {
                 'short' : False,
@@ -165,8 +166,8 @@ class Server:
                         grab()
             jump()
         """
-        last_action = request['last_action']
-        self.pretty_print("DECIDE", "Last Action: %s" % last_action)
+        self.pretty_print("DECIDE", "Last Action: %s" % request['last_action'])
+        self.pretty_print("DECIDE", "Result: %s" % request['result'])
         self.pretty_print("DECIDE", "Row: %d" % self.row_num)
         self.pretty_print("DECIDE", "Plants Observed: %d" % self.plant_num)
         self.pretty_print("DECIDE", "Blocks Collected: %d" % self.block_num)
@@ -174,9 +175,10 @@ class Server:
             action = 'wait'       
         elif (self.row_num < self.NUM_ROWS) and (self.plant_num < self.NUM_PLANTS):
             if self.num_actions == 0:
-                action = 'begin'           
+                action = 'begin'
             if request['last_action'] == 'begin':
                 action = 'align'
+                self.row_num = 1
             if request['last_action'] == 'align':
                 action = 'seek'
             if request['last_action'] == 'seek':
@@ -186,11 +188,13 @@ class Server:
                 if request['at_end'] == 1:
                     action = 'jump'
                 elif request['at_plant'] != 0:
-                    (color, height, is_new) = self.identify_plant(request['img'])
-                    if is_new:
-                        action = 'grab'
-                    else:
+                    (color, height) = self.identify_plant(request['img'])
+                    self.observed_plants.append((row, plant, color, height))
+                    if self.collected_plants[color][height] == True: # check if plant type has been seen yet
                         action = 'seek'
+                    else:
+                        self.collected_plants[color][height] = True # if not, set to true and grab
+                        action = 'grab'
             if request['last_action'] == 'turn':
                 action = 'align'
             if request['last_action'] == 'grab':
@@ -203,19 +207,15 @@ class Server:
         return action
     def identify_plant(self, bgr):
         """
-        color : green, yellow, brown
-        height: short, tall
-        is_new : true/false
+        Returns:
+            color : green, yellow, brown
+            height: short, tall
+            is_new : true/false
         """
         if self.VERBOSE: self.pretty_print("CV2", "Identifying plant phenotype ...")
         height = 'short'
         color = 'green'
-        if self.collected_plants[color][height] == True:
-            is_new = False
-        else:
-            is_new = True
-            self.collected_plants[color][height] = True # set to true
-        return color, height, is_new
+        return color, height
         
     ## CherryPy Functions
     def __init_tasks__(self):
@@ -236,8 +236,8 @@ class Server:
     def refresh(self):
         """ Update the GUI """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Updating GUI ...')
+        self.gui.draw_board(self.observed_plants)
         self.gui.update_gui()
-        self.gui.show_board()
     @cherrypy.expose
     def index(self):
         """ Render index page """
@@ -272,7 +272,7 @@ class Server:
         self.running = False
     def reset(self, object):
         self.pretty_print("GUI", "Resetting to start ...")
-        pass
+        self.__init_statemachine__() # reset values
     def shutdown(self, object):
         self.pretty_print("GUI", "Executing reboot ...")
         pass
@@ -304,26 +304,19 @@ class GUI(object):
             self.window.add(self.vbox)
             self.hbox = gtk.VBox(False, 0)
             self.hbox.show()
-            # Run Button
-            self.button_run = gtk.Button("Run")
+            # Buttons
+            self.button_run = gtk.Button("Run") # Run Button
             self.button_run.connect("clicked", object.run)
             self.hbox.pack_start(self.button_run, True, True, 0)
             self.button_run.show()
-            # Stop Button
-            self.button_stop = gtk.Button("Stop")
+            self.button_stop = gtk.Button("Stop") # Stop Button
             self.button_stop.connect("clicked", object.stop)
             self.hbox.pack_start(self.button_stop, True, True, 0)
             self.button_stop.show()
-            # Reset Button
-            self.button_reset = gtk.Button("Reset")
+            self.button_reset = gtk.Button("Reset") # Reset Button
             self.button_reset.connect("clicked", object.reset)
             self.hbox.pack_start(self.button_reset, True, True, 0)
             self.button_reset.show()
-            # Shutdown Button
-            self.button_shutdown = gtk.Button("Shutdown")
-            self.button_shutdown.connect("clicked", object.shutdown)
-            self.hbox.pack_start(self.button_shutdown, True, True, 0)
-            self.button_shutdown.show()
             self.vbox.add(self.hbox)
             # Board Image
             self.bgr = cv2.imread(object.GUI_IMAGE)
@@ -341,14 +334,27 @@ class GUI(object):
         while gtk.events_pending():
             gtk.main_iteration_do(False)
     
-    ## Show Board
-    def show_board(self, img_path='static/board.jpg'):
+    ## Draw Board
+    def draw_board(self, observed_plants, x=75, y=133, x_pad=154, y_pad=40, brown=(116,60,12), yellow=(219,199,6), green=(0,255,0), tall=10, short=5):
         try:
-            board = cv2.imread(img_path)
-            (w,h,d) = board.shape
-            #!TODO draw board
+            (W,H,D) = self.bgr.shape
+            for (r,p,c,h) in observed_plants:
+                if h == 'tall':
+                    radius = tall
+                if h == 'short':
+                    radius = short
+                if c == 'green':
+                    color = green
+                if c == 'yellow':
+                    color = yellow
+                if c == 'brown':
+                    color = brown
+                center = (W - (((p-1) * x) + x_pad), H - (((r-1) * y) + y_pad))
+                cv2.circle(self.bgr, center, radius, color, thickness=20)
+            self.pix = gtk.gdk.pixbuf_new_from_array(self.bgr, gtk.gdk.COLORSPACE_RGB, 8)
+            self.image.set_from_pixbuf(self.pix)
         except Exception as e:
-            raise e
+            print str(e)
 
 # Main
 if __name__ == '__main__':
