@@ -25,7 +25,7 @@ const int REPEAT_COMMAND = 'R';
 const int UNKNOWN_COMMAND = '?';
 
 /* --- Line Following --- */
-const int LINE_THRESHOLD = 750;
+const int LINE_THRESHOLD = 700;
 
 /* --- I/O Pins --- */
 const int CENTER_LINE_PIN = A0;
@@ -48,7 +48,8 @@ const int SERVO_MIN = 300;
 const int SERVO_OFF = 380; // this is the servo off pulse length
 const int SERVO_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
 const int PWM_FREQ = 60; // analog servos run at 60 Hz
-const int SERVO_SLOW = 10;
+const int SERVO_SLOW = 20;
+const int SERVO_SPEED = 15;
 
 /* --- Variables --- */
 char command;
@@ -85,44 +86,44 @@ void loop() {
   if (Serial.available() > 0) {
     char val = Serial.read();
     switch (val) {
-      case BEGIN_COMMAND:
-        command = BEGIN_COMMAND;
-        result = begin_run();
-        break;
-      case ALIGN_COMMAND:
-        command = ALIGN_COMMAND;
-        result = align();
-        break;
-      case SEEK_COMMAND:
-        command = SEEK_COMMAND;
-        result = seek_plant();
-        break;
-      case GRAB_COMMAND:
-        command = GRAB_COMMAND;
-        result = grab();
-        break;
-      case TURN_COMMAND:
-        command = TURN_COMMAND;
-        result = turn();
-        break;
-      case JUMP_COMMAND:
-        command = JUMP_COMMAND;
-        result = jump();
-        break;
-      case FINISH_COMMAND:
-        command = FINISH_COMMAND;
-        result = finish_run();
-        break;
-      case REPEAT_COMMAND:
-        break;
-      case WAIT_COMMAND:
-        command = WAIT_COMMAND;
-        result = wait();
-        break;
-      default:
-        result = 255;
-        command = UNKNOWN_COMMAND;
-        break;
+    case BEGIN_COMMAND:
+      command = BEGIN_COMMAND;
+      result = begin_run();
+      break;
+    case ALIGN_COMMAND:
+      command = ALIGN_COMMAND;
+      result = align();
+      break;
+    case SEEK_COMMAND:
+      command = SEEK_COMMAND;
+      result = seek_plant();
+      break;
+    case GRAB_COMMAND:
+      command = GRAB_COMMAND;
+      result = grab();
+      break;
+    case TURN_COMMAND:
+      command = TURN_COMMAND;
+      result = turn();
+      break;
+    case JUMP_COMMAND:
+      command = JUMP_COMMAND;
+      result = jump();
+      break;
+    case FINISH_COMMAND:
+      command = FINISH_COMMAND;
+      result = finish_run();
+      break;
+    case REPEAT_COMMAND:
+      break;
+    case WAIT_COMMAND:
+      command = WAIT_COMMAND;
+      result = wait();
+      break;
+    default:
+      result = 255;
+      command = UNKNOWN_COMMAND;
+      break;
     }
     sprintf(output, "{'command':'%c','result':%d,'at_plant':%d,'at_end':%d,'pass':%d}", command, result, at_plant, at_end, pass);
     Serial.println(output);
@@ -142,11 +143,11 @@ int begin_run(void) {
   delay(BEGIN_INTERVAL);
   // Run until line found
   while (center_line < LINE_THRESHOLD) {
-      update_lines();
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
+    update_lines();
+    pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+    pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
+    pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+    pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
   }
   // Stop
   pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
@@ -161,7 +162,43 @@ int seek_plant(void) {
   at_end = 0;
   while ((center_line < LINE_THRESHOLD) && (right_line < LINE_THRESHOLD)  && (left_line < LINE_THRESHOLD)) {
     update_lines();
+    if ((center_line > LINE_THRESHOLD) && (left_line > LINE_THRESHOLD) && (right_line > LINE_THRESHOLD)) {
+      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
+      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
+      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
+      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
+    }  
+    else if ((center_line > LINE_THRESHOLD) && (left_line < LINE_THRESHOLD) && (right_line < LINE_THRESHOLD)) {
+      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
+      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
+      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
+      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
+    }
+    else if ((center_line > LINE_THRESHOLD) || (left_line > LINE_THRESHOLD) && (right_line < LINE_THRESHOLD)) {
+      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED / 2);
+      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
+      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED / 2);
+      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
+    }
+    else if ((center_line > LINE_THRESHOLD) || (left_line < LINE_THRESHOLD) && (right_line > LINE_THRESHOLD)) {
+      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
+      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED / 2);
+      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
+      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED / 2);
+    }
+    else {
+      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
+      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
+      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
+      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
+    }
   }
+  // Stop servos
+  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
+  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
+  // Set globals
   if (pass == 1) {
     at_end = 2;
   }
@@ -186,11 +223,11 @@ int jump(void) {
   delay(TURN90_INTERVAL);
   // Run until line
   while (center_line < LINE_THRESHOLD) {
-      update_lines();
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
+    update_lines();
+    pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+    pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
+    pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+    pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
   }
   // Stop
   pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
@@ -230,16 +267,16 @@ int turn(void) {
 }
 
 int grab(void) {
-    // Retract arm fully
-    pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
-    delay(GRAB_INTERVAL);
-    // Grab block
-    pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
-    delay(GRAB_INTERVAL);
-    // Return arm to initial position
-    pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
-    delay(GRAB_INTERVAL);
-    return 0;
+  // Retract arm fully
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
+  delay(GRAB_INTERVAL);
+  // Grab block
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
+  delay(GRAB_INTERVAL);
+  // Return arm to initial position
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
+  delay(GRAB_INTERVAL);
+  return 0;
 }
 
 int align(void) {
@@ -256,11 +293,11 @@ int align(void) {
 }
 
 int finish_run(void) {
-    // Move Forward
-    // Turn Right 90 degrees
-    // Go until finish square
-    // Step into square
-    return 0;
+  // Move Forward
+  // Turn Right 90 degrees
+  // Go until finish square
+  // Step into square
+  return 0;
 }
 
 int wait(void) {
@@ -278,3 +315,4 @@ void update_plant(void) {
   int dist = analogRead(DIST_SENSOR_PIN);
   at_plant = 0;
 }
+

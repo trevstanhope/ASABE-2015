@@ -3,11 +3,11 @@
 #include <Adafruit_PWMServoDriver.h>
 
 /* --- Constants --- */
-const int LINE_THRESHOLD = 750;
+const int LINE_THRESHOLD = 700;
 const int BAUD = 9600;
-const int LEFT_LINE_PIN = A0;
+const int LEFT_LINE_PIN = A2;
 const int RIGHT_LINE_PIN = A1;
-const int CENTER_LINE_PIN = A2;
+const int CENTER_LINE_PIN = A0;
 
 const int FRONT_LEFT_SERVO = 0;
 const int FRONT_RIGHT_SERVO = 1;
@@ -15,19 +15,19 @@ const int BACK_LEFT_SERVO = 2;
 const int BACK_RIGHT_SERVO = 3;
 
 const int FRONT_LEFT_MIN = 300;
-const int FRONT_LEFT_OFF = 381; // this is the servo off pulse length
+const int FRONT_LEFT_OFF = 380; // this is the servo off pulse length
 const int FRONT_LEFT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
 
 const int FRONT_RIGHT_MIN = 300;
-const int FRONT_RIGHT_OFF = 381; // this is the servo off pulse length
+const int FRONT_RIGHT_OFF = 380; // this is the servo off pulse length
 const int FRONT_RIGHT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
 
 const int BACK_LEFT_MIN = 300;
-const int BACK_LEFT_OFF = 381; // this is the servo off pulse length
+const int BACK_LEFT_OFF = 380; // this is the servo off pulse length
 const int BACK_LEFT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
 
 const int BACK_RIGHT_MIN = 300;
-const int BACK_RIGHT_OFF = 381; // this is the servo off pulse length
+const int BACK_RIGHT_OFF = 380; // this is the servo off pulse length
 const int BACK_RIGHT_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
 const int PWM_FREQ = 60; // analog servos run at 60 Hz
 const int SERVO_SPEED = 10;

@@ -182,7 +182,7 @@ class Server:
             if request['last_action'] == 'seek':
                 if request['at_end'] == 2:
                     action = 'turn'
-                    self.row = self.row + 1
+                    self.row_num = self.row_num + 1
                 if request['at_end'] == 1:
                     action = 'jump'
                 elif request['at_plant'] != 0:
