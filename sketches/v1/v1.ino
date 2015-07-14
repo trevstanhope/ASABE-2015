@@ -49,7 +49,7 @@ const int SERVO_MIN = 300;
 const int SERVO_OFF = 380; // this is the servo off pulse length
 const int SERVO_MAX =  460; // this is the 'maximum' pulse length count (out of 4096)
 const int PWM_FREQ = 60; // analog servos run at 60 Hz
-const int SERVO_SLOW = 20;
+const int SERVO_SLOW = 5;
 const int SERVO_SPEED = 15;
 
 /* --- Variables --- */
