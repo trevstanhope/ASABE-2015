@@ -273,14 +273,11 @@ class Server:
     def reset(self, object):
         self.pretty_print("GUI", "Resetting to start ...")
         self.__init_statemachine__() # reset values
-    def shutdown(self, object):
-        self.pretty_print("GUI", "Executing reboot ...")
-        pass
     def close(self, widget, window):
         try:
             gtk.main_quit()
         except Exception as e:
-            self.pretty_print('GUI', 'Console server is still up (CTRL-D to exit)')
+            self.pretty_print('GUI', 'Console server is still up (CTRL-C to exit)')
 # Display
 class GUI(object):
 
@@ -300,32 +297,65 @@ class GUI(object):
             self.window.connect("delete_event", object.close)
             self.window.set_border_width(10)
             self.window.show()
-            self.vbox = gtk.HBox(False, 0)
-            self.window.add(self.vbox)
-            self.hbox = gtk.VBox(False, 0)
-            self.hbox.show()
+            self.hbox = gtk.HBox(False, 0)
+            self.window.add(self.hbox)
             # Buttons
+            self.hbox2 = gtk.HBox(False, 0)
+            self.vbox = gtk.VBox(False, 0)
+            self.vbox2 = gtk.VBox(False, 0)
+            self.hbox.add(self.vbox)
+            self.hbox2.show()
+            self.vbox2.show()
+            self.hbox3 = gtk.HBox(False, 0)
+            self.vbox3 = gtk.VBox(False, 0)
             self.button_run = gtk.Button("Run") # Run Button
             self.button_run.connect("clicked", object.run)
-            self.hbox.pack_start(self.button_run, True, True, 0)
+            self.vbox3.pack_start(self.button_run, True, True, 0)
             self.button_run.show()
             self.button_stop = gtk.Button("Stop") # Stop Button
             self.button_stop.connect("clicked", object.stop)
-            self.hbox.pack_start(self.button_stop, True, True, 0)
+            self.vbox3.pack_start(self.button_stop, True, True, 0)
             self.button_stop.show()
             self.button_reset = gtk.Button("Reset") # Reset Button
             self.button_reset.connect("clicked", object.reset)
-            self.hbox.pack_start(self.button_reset, True, True, 0)
+            self.hbox3.pack_start(self.button_reset, True, True, 0)
+            self.hbox3.add(self.vbox3)
+            self.vbox2.add(self.hbox3)
+            self.hbox3.show()
+            self.vbox3.show()
             self.button_reset.show()
-            self.vbox.add(self.hbox)
-            # Board Image
-            self.bgr = cv2.imread(object.GUI_IMAGE)
-            self.pix = gtk.gdk.pixbuf_new_from_array(self.bgr, gtk.gdk.COLORSPACE_RGB, 8)
-            self.image = gtk.Image()
-            self.image.set_from_pixbuf(self.pix)
-            self.image.show()
-            self.vbox.add(self.image)
+            self.vbox.add(self.vbox2)
+            self.label = gtk.Label()
+            self.label.set("Plants Observed: 0")
+            self.label.show()		
+            self.vbox2.add(self.label)
+            self.label2 = gtk.Label()
+            self.label2.set("Samples Collected: 0")
+            self.label2.show()		
+            self.vbox2.add(self.label2)
+            self.label = gtk.Label()
+            self.label.set("Row Number: 0")
+            self.label.show()		
+            self.vbox2.add(self.label)
+            self.label3 = gtk.Label()
+            self.label3.set("Pass Direction: Right-to-Left")
+            self.label3.show()		
+            self.vbox2.add(self.label3)
+            self.camera_bgr = cv2.imread('static/camera.jpg')
+            self.camera_pix = gtk.gdk.pixbuf_new_from_array(self.camera_bgr, gtk.gdk.COLORSPACE_RGB, 8)
+            self.camera_img = gtk.Image()
+            self.camera_img.set_from_pixbuf(self.camera_pix)
+            self.camera_img.show()
+            self.vbox2.add(self.camera_img)
             self.vbox.show()
+            # Board Image
+            self.board_bgr = cv2.imread(object.GUI_IMAGE)
+            self.board_pix = gtk.gdk.pixbuf_new_from_array(self.board_bgr, gtk.gdk.COLORSPACE_RGB, 8)
+            self.board_img = gtk.Image()
+            self.board_img.set_from_pixbuf(self.board_pix)
+            self.board_img.show()
+            self.hbox.add(self.board_img)
+            self.hbox.show()
         except Exception as e:
             raise e
     
@@ -337,7 +367,7 @@ class GUI(object):
     ## Draw Board
     def draw_board(self, observed_plants, x=75, y=133, x_pad=154, y_pad=40, brown=(116,60,12), yellow=(219,199,6), green=(0,255,0), tall=10, short=5):
         try:
-            (W,H,D) = self.bgr.shape
+            (W,H,D) = self.board_bgr.shape
             for (r,p,c,h) in observed_plants:
                 if h == 'tall':
                     radius = tall
@@ -350,12 +380,18 @@ class GUI(object):
                 if c == 'brown':
                     color = brown
                 center = (W - (((p-1) * x) + x_pad), H - (((r-1) * y) + y_pad))
-                cv2.circle(self.bgr, center, radius, color, thickness=20)
-            self.pix = gtk.gdk.pixbuf_new_from_array(self.bgr, gtk.gdk.COLORSPACE_RGB, 8)
-            self.image.set_from_pixbuf(self.pix)
+                cv2.circle(self.board_bgr, center, radius, color, thickness=20)
+            self.board_pix = gtk.gdk.pixbuf_new_from_array(self.board_bgr, gtk.gdk.COLORSPACE_RGB, 8)
+            self.board_img.set_from_pixbuf(self.board_pix)
         except Exception as e:
             print str(e)
 
+    ## Draw Camera
+    def draw_camera(self):
+        try:
+            (W,H,D) = self.camera_bgr.shape
+        except Exception as e:
+            print str(e)
 # Main
 if __name__ == '__main__':
     server = Server(CONFIG_PATH)

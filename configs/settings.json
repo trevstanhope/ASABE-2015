@@ -27,7 +27,7 @@
     "CAMERA_CONTRAST" : 0.5,
     "GUI_IMAGE" : "static/board.jpg",
     "GUI_WINDOW_X" : 800,
-    "GUI_WINDOW_Y" : 600,   
+    "GUI_WINDOW_Y" : 700,   
     "ACTIONS" : {
         "begin" : "B",
         "align" : "A",
