@@ -178,8 +178,9 @@ class Server:
         self.pretty_print("DECIDE", "Result: %s" % request['result'])
         self.pretty_print("DECIDE", "Row: %d" % self.row_num)
         self.pretty_print("DECIDE", "Plants Observed: %d" % self.plant_num)
-        self.pretty_print("DECIDE", "Blocks Collected: %d" % self.block_num)
+        self.pretty_print("DECIDE", "Blocks Collected: %d" % self.samples_num)
         self.at_end = request['at_end']
+        self.pass_num = request['pass_num']
         self.at_plant = request['at_plant']
         if self.running == False:
             action = 'wait'       
@@ -194,7 +195,6 @@ class Server:
             if request['last_action'] == 'seek':
                 if request['at_end'] == 2:
                     action = 'turn'
-                    self.row_num = self.row_num + 1
                 if request['at_end'] == 1:
                     action = 'jump'
                 elif request['at_plant'] != 0:
@@ -211,6 +211,7 @@ class Server:
                 action = 'seek'
             if request['last_action'] == 'jump':
                 action = 'align'
+                self.row_num = self.row_num + 1
             self.num_actions = self.num_actions + 1
         else:
             action = 'finish'
@@ -239,6 +240,8 @@ class Server:
         """ Listen for Next Sample """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Listening for nodes ...')
         req = self.receive_request()
+        bgr = np.rot90(np.array(req['bgr'], np.uint8), 3)
+        self.gui.draw_camera(bgr)
         action = self.decide_action(req)
         resp = self.send_response(action)
         event_id = self.store_event(req, resp)
@@ -249,6 +252,8 @@ class Server:
         self.gui.draw_board(self.observed_plants, robot_position)
         if self.running:
             self.clock = self.end_time - time.time()
+            if self.clock <= 0:
+                self.running = False
         else:
             self.end_time = time.time() + self.clock         
         self.gui.update_gui(self.pass_num, self.row_num, self.plant_num, self.samples_num, self.clock)
@@ -311,6 +316,7 @@ class GUI(object):
             self.GUI_LABEL_ROW = object.GUI_LABEL_ROW
             self.GUI_LABEL_SAMPLES = object.GUI_LABEL_SAMPLES
             self.GUI_LABEL_CLOCK = object.GUI_LABEL_CLOCK
+            self.GUI_BOARD_IMAGE = object.GUI_BOARD_IMAGE
             # Window
             self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
             self.window.set_size_request(object.GUI_WINDOW_X, object.GUI_WINDOW_Y)
@@ -365,7 +371,7 @@ class GUI(object):
             self.label_clock.set(object.GUI_LABEL_CLOCK)
             self.label_clock.show()		
             self.vbox2.add(self.label_clock)
-            self.camera_bgr = cv2.imread('static/camera.jpg')
+            self.camera_bgr = cv2.imread(object.GUI_CAMERA_IMAGE)
             self.camera_pix = gtk.gdk.pixbuf_new_from_array(self.camera_bgr, gtk.gdk.COLORSPACE_RGB, 8)
             self.camera_img = gtk.Image()
             self.camera_img.set_from_pixbuf(self.camera_pix)
@@ -373,7 +379,7 @@ class GUI(object):
             self.vbox2.add(self.camera_img)
             self.vbox.show()
             # Board Image
-            self.board_bgr = cv2.imread(object.GUI_IMAGE)
+            self.board_bgr = cv2.imread(object.GUI_BOARD_IMAGE)
             self.board_pix = gtk.gdk.pixbuf_new_from_array(self.board_bgr, gtk.gdk.COLORSPACE_RGB, 8)
             self.board_img = gtk.Image()
             self.board_img.set_from_pixbuf(self.board_pix)
@@ -396,7 +402,8 @@ class GUI(object):
     ## Draw Board
     def draw_board(self, observed_plants, robot_position, x=75, y=132, x_pad=154, y_pad=40, brown=(116,60,12), yellow=(219,199,6), green=(0,255,0), tall=7, short=2):
         try:
-            (W,H,D) = self.board_bgr.shape
+            board_bgr = cv2.imread(self.GUI_BOARD_IMAGE)
+            (W,H,D) = board_bgr.shape
             (row_num, at_plant, pass_num, at_end) = robot_position
 
             # Robot
@@ -404,13 +411,15 @@ class GUI(object):
                 if row_num == 0: # if at beginning
                     (center_x, center_y) = (W - 55, H - 55) ## 55, 55 is best
                 elif at_plant != 0:  # if at plant
-                    (center_x, center_y) = (W - (at_plant) * x - 77, H - (row_num - 1) * y - 110) ## 55, 55 is best
-                elif pass_num == 2: # unaligned post-turn
-                    (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110) ## 55, 55 is best
+                    (center_x, center_y) = (W - (at_plant) * x - 77, H - (row_num - 1) * y - 110)
+                elif pass_num == -1: # unaligned post-turn
+                    (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110) 
                 elif row_num >= 1: # unaligned post-jump
-                    (center_x, center_y) = (W - 130, H - (row_num - 1) * y - 110) ## 55, 55 is best
-                else: # somewher after plant
-                    (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110) ## 55, 55 is best
+                    (center_x, center_y) = (W - 130, H - (row_num - 1) * y - 110) 
+                elif row_num > 4: # to finish
+                    (center_x, center_y) = (W - 130, H - (row_num - 1) * y - 110)
+                else: # somewhere after plant
+                    (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110)
             elif at_end == 1:
                 (center_x, center_y) = (W - 110, H - (row_num-1) * y - 110) # right side at row
             elif at_end == 2:
@@ -419,7 +428,7 @@ class GUI(object):
                 (center_x, center_y) = (W - 55, H - 55)          
             top_left = ((center_x - 20), (center_y - 20))
             bottom_right = ((center_x + 20), (center_y + 20 ))
-            cv2.rectangle(self.board_bgr, top_left, bottom_right, (255,0,0), thickness=5)
+            cv2.rectangle(board_bgr, top_left, bottom_right, (255,0,0), thickness=5)
 
             # Plants
             if observed_plants == []: # at start
@@ -437,16 +446,19 @@ class GUI(object):
                     if c == 'brown':
                         color = brown
                     center = ((W - (((p-1) * x) + x_pad)), (H - (((r-1) * y) + y_pad)))
-                    cv2.circle(self.board_bgr, center, radius, color, thickness=15)
-            self.board_pix = gtk.gdk.pixbuf_new_from_array(self.board_bgr, gtk.gdk.COLORSPACE_RGB, 8)
+                    cv2.circle(board_bgr, center, radius, color, thickness=15)
+            self.board_pix = gtk.gdk.pixbuf_new_from_array(board_bgr, gtk.gdk.COLORSPACE_RGB, 8)
             self.board_img.set_from_pixbuf(self.board_pix)
         except Exception as e:
             print str(e)
 
     ## Draw Camera
-    def draw_camera(self):
+    def draw_camera(self, bgr):
         try:
+            self.camera_bgr = bgr
             (W,H,D) = self.camera_bgr.shape
+            self.camera_pix = gtk.gdk.pixbuf_new_from_array(self.camera_bgr, gtk.gdk.COLORSPACE_RGB, 8)
+            self.camera_img.set_from_pixbuf(self.camera_pix)
         except Exception as e:
             print str(e)
 # Main

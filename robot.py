@@ -104,7 +104,7 @@ class Robot:
         if s:
             return bgr
         else:
-            return np.zeros((self.CAMERA_WIDTH, self.CAMERA_HEIGHT, 3))
+            return np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
     
     ## Send request to server
     def request_action(self, bgr, status):
@@ -117,6 +117,7 @@ class Robot:
                 'result' : status['result'],
                 'at_end' : status['at_end'],
                 'at_plant' : status['at_plant'],
+                'pass_num' : status['pass_num'],
                 'bgr' : bgr.tolist()
             }
             dump = json.dumps(request)
@@ -155,7 +156,6 @@ class Robot:
                     status = ast.literal_eval(string) # parse status response
                 except Exception as e:
                     self.pretty_print('CTRL', 'Error: %s (%s)' % (str(e), string))
-                    self.arduino.write(str(self.ACTIONS['repeat']))
                     time.sleep(wait)
             self.pretty_print("CTRL", "Status: %s" % status)
             self.last_action = action
@@ -168,6 +168,7 @@ class Robot:
         status = {
             'at_plant' : False,
             'at_end' : False,
+            'pass_num' : 0,
             'command' : '?',
             'result' : 255
         }

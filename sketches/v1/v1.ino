@@ -160,14 +160,9 @@ int begin_run(void) {
 
 int seek_plant(void) {
   at_end = 0; // reset at_end global to zero (no longer will be at end once seek is executed)
-  while (find_offset(LINE_THRESHOLD) != 65546)  {
-    int x = find_offset(LINE_THRESHOLD);
-    if ((center_line > LINE_THRESHOLD) && (left_line > LINE_THRESHOLD) && (right_line > LINE_THRESHOLD)) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-    }
+  int x = find_offset(LINE_THRESHOLD);
+  while (x != 255)  {
+    x = find_offset(LINE_THRESHOLD);
   }
   // Stop servos
   pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
@@ -293,7 +288,7 @@ int find_offset(int threshold) {
   int l = analogRead(LEFT_LINE_PIN);
   int c = analogRead(CENTER_LINE_PIN);
   int r = analogRead(RIGHT_LINE_PIN);
-  int x = 0;
+  int x;
   if ((l > threshold) && (c < threshold) && (r < threshold)) {
     x = 2; // very off
   }
@@ -310,10 +305,13 @@ int find_offset(int threshold) {
     x = -2; // very off
   }
   else if ((l > threshold) && (c > threshold) && (r > threshold)) {
-    x = 65536; // at end
+    x = 255; // at end
   }
   else if ((l < threshold) && (c < threshold) && (r < threshold)) {
-    x = -65536; // off entirely
+    x = -255; // off entirely
+  }
+  else {
+    x = 255;
   }
   return x;
 }
