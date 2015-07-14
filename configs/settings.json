@@ -27,7 +27,12 @@
     "CAMERA_CONTRAST" : 0.5,
     "GUI_IMAGE" : "static/board.jpg",
     "GUI_WINDOW_X" : 800,
-    "GUI_WINDOW_Y" : 700,   
+    "GUI_WINDOW_Y" : 700,
+    "GUI_LABEL_PASS" : "Pass Direction: %d",
+    "GUI_LABEL_ROW" : "Row Number: %d",
+    "GUI_LABEL_PLANTS" : "Plants Observed: %d",
+    "GUI_LABEL_SAMPLES" : "Samples Collected: %d",
+    "GUI_LABEL_CLOCK" : "Seconds Remaining: %d",
     "ACTIONS" : {
         "begin" : "B",
         "align" : "A",

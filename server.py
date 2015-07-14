@@ -25,6 +25,7 @@ import pygtk
 pygtk.require('2.0')
 import gtk
 import matplotlib.pyplot as mpl
+import time
 
 # Configuration
 try:
@@ -124,10 +125,15 @@ class Server:
     
     ## Statemachine Functions
     def __init_statemachine__(self):
+        self.running = False
         self.num_actions = 0
         self.row_num = 0
         self.plant_num = 0
-        self.block_num = 0
+        self.pass_num = 0
+        self.samples_num = 0
+        self.start_time = time.time()
+        self.end_time = self.start_time + 5 * 60
+        self.clock = self.end_time - self.start_time
         self.observed_plants = []
         self.collected_plants = {
             'green' : {
@@ -227,7 +233,6 @@ class Server:
             self.pretty_print('CHERRYPY', str(error))
     def listen(self):
         """ Listen for Next Sample """
-        self.gui.update_gui()
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Listening for nodes ...')
         req = self.receive_request()
         action = self.decide_action(req)
@@ -237,7 +242,11 @@ class Server:
         """ Update the GUI """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Updating GUI ...')
         self.gui.draw_board(self.observed_plants)
-        self.gui.update_gui()
+        if self.running:
+            self.clock = self.end_time - time.time()
+        else:
+            self.end_time = time.time() + self.clock         
+        self.gui.update_gui(self.pass_num, self.row_num, self.plant_num, self.samples_num, self.clock)
     @cherrypy.expose
     def index(self):
         """ Render index page """
@@ -291,6 +300,11 @@ class GUI(object):
             - run()
         """
         try:
+            self.GUI_LABEL_PASS = object.GUI_LABEL_PASS
+            self.GUI_LABEL_PLANTS = object.GUI_LABEL_PLANTS
+            self.GUI_LABEL_ROW = object.GUI_LABEL_ROW
+            self.GUI_LABEL_SAMPLES = object.GUI_LABEL_SAMPLES
+            self.GUI_LABEL_CLOCK = object.GUI_LABEL_CLOCK
             # Window
             self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
             self.window.set_size_request(object.GUI_WINDOW_X, object.GUI_WINDOW_Y)
@@ -325,22 +339,26 @@ class GUI(object):
             self.vbox3.show()
             self.button_reset.show()
             self.vbox.add(self.vbox2)
-            self.label = gtk.Label()
-            self.label.set("Plants Observed: 0")
-            self.label.show()		
-            self.vbox2.add(self.label)
-            self.label2 = gtk.Label()
-            self.label2.set("Samples Collected: 0")
-            self.label2.show()		
-            self.vbox2.add(self.label2)
-            self.label = gtk.Label()
-            self.label.set("Row Number: 0")
-            self.label.show()		
-            self.vbox2.add(self.label)
-            self.label3 = gtk.Label()
-            self.label3.set("Pass Direction: Right-to-Left")
-            self.label3.show()		
-            self.vbox2.add(self.label3)
+            self.label_plants = gtk.Label()
+            self.label_plants.set(object.GUI_LABEL_PLANTS)
+            self.label_plants.show()		
+            self.vbox2.add(self.label_plants)
+            self.label_samples = gtk.Label()
+            self.label_samples.set(object.GUI_LABEL_SAMPLES)
+            self.label_samples.show()		
+            self.vbox2.add(self.label_samples)
+            self.label_row = gtk.Label()
+            self.label_row.set(object.GUI_LABEL_ROW)
+            self.label_row.show()
+            self.vbox2.add(self.label_row)
+            self.label_pass = gtk.Label()
+            self.label_pass.set(object.GUI_LABEL_PASS)
+            self.label_pass.show()		
+            self.vbox2.add(self.label_pass)
+            self.label_clock = gtk.Label()
+            self.label_clock.set(object.GUI_LABEL_CLOCK)
+            self.label_clock.show()		
+            self.vbox2.add(self.label_clock)
             self.camera_bgr = cv2.imread('static/camera.jpg')
             self.camera_pix = gtk.gdk.pixbuf_new_from_array(self.camera_bgr, gtk.gdk.COLORSPACE_RGB, 8)
             self.camera_img = gtk.Image()
@@ -360,7 +378,12 @@ class GUI(object):
             raise e
     
     ## Update GUI
-    def update_gui(self):
+    def update_gui(self, ps, r, pl, s, t):
+        self.label_pass.set(self.GUI_LABEL_PASS % ps)
+        self.label_row.set(self.GUI_LABEL_ROW % r)
+        self.label_plants.set(self.GUI_LABEL_PLANTS % pl)
+        self.label_samples.set(self.GUI_LABEL_SAMPLES % s)
+        self.label_clock.set(self.GUI_LABEL_CLOCK % t)
         while gtk.events_pending():
             gtk.main_iteration_do(False)
     
