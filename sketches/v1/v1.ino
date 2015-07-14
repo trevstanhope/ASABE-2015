@@ -59,7 +59,7 @@ int left_line = 0;
 int right_line = 0;
 int at_plant = 0; // 0: not at plant, 1-5: plant number
 int at_end = 0; // 0: not at end, 1: 1st end of row, 2: 2nd end of row
-int pass = 0; // 0: not specified, 1: right-to-left, -1: left-to-rightd
+int direction = 0; // 0: not specified, 1: right-to-left, -1: left-to-rightd
 
 /* --- Buffers --- */
 char output[OUTPUT_LENGTH];
@@ -125,7 +125,7 @@ void loop() {
       command = UNKNOWN_COMMAND;
       break;
     }
-    sprintf(output, "{'command':'%c','result':%d,'at_plant':%d,'at_end':%d,'pass':%d}", command, result, at_plant, at_end, pass);
+    sprintf(output, "{'command':'%c','result':%d,'at_plant':%d,'at_end':%d,'direction':%d}", command, result, at_plant, at_end, direction);
     Serial.println(output);
     Serial.flush();
   }
@@ -154,7 +154,7 @@ int begin_run(void) {
   pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-  pass = 1;
+  direction = 1;
   return 0;
 }
 
@@ -199,10 +199,10 @@ int seek_plant(void) {
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
   // Set globals
-  if (pass == 1) {
+  if (direction == 1) {
     at_end = 2;
   }
-  else if (pass == -1) {
+  else if (direction == -1) {
     at_end = 1;
   }
   return 0;
@@ -235,7 +235,7 @@ int jump(void) {
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
   at_end = 0;
-  pass = 1;
+  direction = 1;
   return 0;
 }
 
@@ -259,8 +259,8 @@ int turn(void) {
   pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-  if (pass == 1) {
-    pass = -1;
+  if (direction == 1) {
+    direction = -1;
   }
   at_end = 0;
   return 0;
@@ -280,13 +280,13 @@ int grab(void) {
 }
 
 int align(void) {
-  if (pass == 0) {
+  if (direction == 0) {
     return 1;
   }
-  else if (pass == 1) {
+  else if (direction == 1) {
     at_end = 1;
   }
-  else if (pass == -1) {
+  else if (direction == -1) {
     at_end = 2;
   }
   return 0;

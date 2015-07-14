@@ -33,9 +33,17 @@ class Robot:
         self.load_config(config_path)
 
         # Initializers
-        self.init_zmq()
-        self.init_arduino()
-        self.init_cam()
+        try:
+            self.init_zmq()
+            self.init_arduino()
+            self.init_cam()
+        except:
+            self.__close__()
+
+    ## Close
+    def __close__(self):
+        self.pretty_print('WARN', 'Shutdown triggered!')
+        exit(1)
     
     ## Pretty Print
     def pretty_print(self, task, msg):
@@ -62,7 +70,7 @@ class Robot:
             self.poller.register(self.socket, zmq.POLLIN)
         except Exception as e:
             self.pretty_print('ZMQ', 'Error: %s' % str(e))
-            exit(1)
+            raise e
     
     ## Initialize Arduino
     def init_arduino(self, wait=2.0):
@@ -72,7 +80,7 @@ class Robot:
             time.sleep(wait)
         except Exception as e:
             self.pretty_print('CTRL', 'Error: %s' % str(e))
-            exit(1)
+            raise e
     
     ## Initialize camera
     def init_cam(self):
@@ -82,9 +90,11 @@ class Robot:
             self.camera.set(cv.CV_CAP_PROP_FRAME_WIDTH, self.CAMERA_WIDTH)
             self.camera.set(cv.CV_CAP_PROP_FRAME_HEIGHT, self.CAMERA_HEIGHT)
             self.camera.set(cv.CV_CAP_PROP_SATURATION, self.CAMERA_SATURATION)
+            self.camera.set(cv.CV_CAP_PROP_CONTRAST, self.CAMERA_CONTRAST)
+            self.camera.set(cv.CV_CAP_PROP_BRIGHTNESS, self.CAMERA_BRIGHTNESS)
         except Exception as e:
             self.pretty_print('CAM', 'Error: %s' % str(e))
-            exit(1)
+            raise e
 
     ## Capture image
     def capture_image(self, n_flush=30):
@@ -170,6 +180,7 @@ class Robot:
                     bgr = self.capture_image()
             except Exception as e:
                 self.pretty_print('RUN', 'Error: %s' % str(e))
+                self.__close__()
                 break
 
 if __name__ == '__main__':

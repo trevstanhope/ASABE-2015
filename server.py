@@ -131,10 +131,12 @@ class Server:
         self.plant_num = 0
         self.pass_num = 0
         self.samples_num = 0
+        self.at_plant = 0
+        self.at_end = 0
         self.start_time = time.time()
         self.end_time = self.start_time + 5 * 60
         self.clock = self.end_time - self.start_time
-        self.observed_plants = []
+        self.observed_plants = [] #TODO can add dummy vals here
         self.collected_plants = {
             'green' : {
                 'short' : False,
@@ -177,6 +179,8 @@ class Server:
         self.pretty_print("DECIDE", "Row: %d" % self.row_num)
         self.pretty_print("DECIDE", "Plants Observed: %d" % self.plant_num)
         self.pretty_print("DECIDE", "Blocks Collected: %d" % self.block_num)
+        self.at_end = request['at_end']
+        self.at_plant = request['at_plant']
         if self.running == False:
             action = 'wait'       
         elif (self.row_num < self.NUM_ROWS) and (self.plant_num < self.NUM_PLANTS):
@@ -241,7 +245,8 @@ class Server:
     def refresh(self):
         """ Update the GUI """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Updating GUI ...')
-        self.gui.draw_board(self.observed_plants)
+        robot_position = (self.row_num, self.at_plant, self.pass_num, self.at_end)
+        self.gui.draw_board(self.observed_plants, robot_position)
         if self.running:
             self.clock = self.end_time - time.time()
         else:
@@ -300,6 +305,7 @@ class GUI(object):
             - run()
         """
         try:
+            # CONSTANTS
             self.GUI_LABEL_PASS = object.GUI_LABEL_PASS
             self.GUI_LABEL_PLANTS = object.GUI_LABEL_PLANTS
             self.GUI_LABEL_ROW = object.GUI_LABEL_ROW
@@ -388,22 +394,50 @@ class GUI(object):
             gtk.main_iteration_do(False)
     
     ## Draw Board
-    def draw_board(self, observed_plants, x=75, y=133, x_pad=154, y_pad=40, brown=(116,60,12), yellow=(219,199,6), green=(0,255,0), tall=10, short=5):
+    def draw_board(self, observed_plants, robot_position, x=75, y=132, x_pad=154, y_pad=40, brown=(116,60,12), yellow=(219,199,6), green=(0,255,0), tall=7, short=2):
         try:
             (W,H,D) = self.board_bgr.shape
-            for (r,p,c,h) in observed_plants:
-                if h == 'tall':
-                    radius = tall
-                if h == 'short':
-                    radius = short
-                if c == 'green':
-                    color = green
-                if c == 'yellow':
-                    color = yellow
-                if c == 'brown':
-                    color = brown
-                center = (W - (((p-1) * x) + x_pad), H - (((r-1) * y) + y_pad))
-                cv2.circle(self.board_bgr, center, radius, color, thickness=20)
+            (row_num, at_plant, pass_num, at_end) = robot_position
+
+            # Robot
+            if at_end == 0:
+                if row_num == 0: # if at beginning
+                    (center_x, center_y) = (W - 55, H - 55) ## 55, 55 is best
+                elif at_plant != 0:  # if at plant
+                    (center_x, center_y) = (W - (at_plant) * x - 77, H - (row_num - 1) * y - 110) ## 55, 55 is best
+                elif pass_num == 2: # unaligned post-turn
+                    (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110) ## 55, 55 is best
+                elif row_num >= 1: # unaligned post-jump
+                    (center_x, center_y) = (W - 130, H - (row_num - 1) * y - 110) ## 55, 55 is best
+                else: # somewher after plant
+                    (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110) ## 55, 55 is best
+            elif at_end == 1:
+                (center_x, center_y) = (W - 110, H - (row_num-1) * y - 110) # right side at row
+            elif at_end == 2:
+                (center_x, center_y) = (W - 500, H - (row_num-1) * y - 110) # left side at some row  
+            else:
+                (center_x, center_y) = (W - 55, H - 55)          
+            top_left = ((center_x - 20), (center_y - 20))
+            bottom_right = ((center_x + 20), (center_y + 20 ))
+            cv2.rectangle(self.board_bgr, top_left, bottom_right, (255,0,0), thickness=5)
+
+            # Plants
+            if observed_plants == []: # at start
+                pass
+            else:
+                for (r,p,c,h) in observed_plants:
+                    if h == 'tall':
+                        radius = tall
+                    if h == 'short':
+                        radius = short
+                    if c == 'green':
+                        color = green
+                    if c == 'yellow':
+                        color = yellow
+                    if c == 'brown':
+                        color = brown
+                    center = ((W - (((p-1) * x) + x_pad)), (H - (((r-1) * y) + y_pad)))
+                    cv2.circle(self.board_bgr, center, radius, color, thickness=15)
             self.board_pix = gtk.gdk.pixbuf_new_from_array(self.board_bgr, gtk.gdk.COLORSPACE_RGB, 8)
             self.board_img.set_from_pixbuf(self.board_pix)
         except Exception as e:
