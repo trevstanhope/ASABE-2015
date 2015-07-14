@@ -9,6 +9,7 @@ const int TURN45_INTERVAL = 1000;
 const int TURN90_INTERVAL = 1000;
 const int GRAB_INTERVAL = 1000;
 const int FINISH_INTERVAL = 3000; // interval to move fully into finishing square
+const int DIST_SAMPLES = 20;
 
 /* --- Serial / Commands --- */
 const int BAUD = 9600;
@@ -59,7 +60,7 @@ int left_line = 0;
 int right_line = 0;
 int at_plant = 0; // 0: not at plant, 1-5: plant number
 int at_end = 0; // 0: not at end, 1: 1st end of row, 2: 2nd end of row
-int direction = 0; // 0: not specified, 1: right-to-left, -1: left-to-rightd
+int pass_num = 0; // 0: not specified, 1: right-to-left, -1: left-to-rightd
 
 /* --- Buffers --- */
 char output[OUTPUT_LENGTH];
@@ -125,7 +126,7 @@ void loop() {
       command = UNKNOWN_COMMAND;
       break;
     }
-    sprintf(output, "{'command':'%c','result':%d,'at_plant':%d,'at_end':%d,'direction':%d}", command, result, at_plant, at_end, direction);
+    sprintf(output, "{'command':'%c','result':%d,'at_plant':%d,'at_end':%d,'pass_num':%d}", command, result, at_plant, at_end, pass_num);
     Serial.println(output);
     Serial.flush();
   }
@@ -142,8 +143,7 @@ int begin_run(void) {
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
   delay(BEGIN_INTERVAL);
   // Run until line found
-  while (center_line < LINE_THRESHOLD) {
-    update_lines();
+  while (find_offset(LINE_THRESHOLD) != 0) {
     pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
     pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
     pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
@@ -154,39 +154,15 @@ int begin_run(void) {
   pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-  direction = 1;
+  pass_num = 1;
   return 0;
 }
 
 int seek_plant(void) {
-  at_end = 0;
-  while ((center_line < LINE_THRESHOLD) && (right_line < LINE_THRESHOLD)  && (left_line < LINE_THRESHOLD)) {
-    update_lines();
+  at_end = 0; // reset at_end global to zero (no longer will be at end once seek is executed)
+  while (find_offset(LINE_THRESHOLD) != 65546)  {
+    int x = find_offset(LINE_THRESHOLD);
     if ((center_line > LINE_THRESHOLD) && (left_line > LINE_THRESHOLD) && (right_line > LINE_THRESHOLD)) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-    }  
-    else if ((center_line > LINE_THRESHOLD) && (left_line < LINE_THRESHOLD) && (right_line < LINE_THRESHOLD)) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
-    }
-    else if ((center_line > LINE_THRESHOLD) || (left_line > LINE_THRESHOLD) && (right_line < LINE_THRESHOLD)) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED / 2);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED / 2);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED);
-    }
-    else if ((center_line > LINE_THRESHOLD) || (left_line < LINE_THRESHOLD) && (right_line > LINE_THRESHOLD)) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED / 2);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SPEED);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SPEED / 2);
-    }
-    else {
       pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
       pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
       pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
@@ -199,10 +175,10 @@ int seek_plant(void) {
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
   // Set globals
-  if (direction == 1) {
+  if (pass_num == 1) {
     at_end = 2;
   }
-  else if (direction == -1) {
+  else if (pass_num == -1) {
     at_end = 1;
   }
   return 0;
@@ -222,8 +198,7 @@ int jump(void) {
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
   delay(TURN90_INTERVAL);
   // Run until line
-  while (center_line < LINE_THRESHOLD) {
-    update_lines();
+  while (find_offset (LINE_THRESHOLD) != 0) {
     pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
     pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
     pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
@@ -235,7 +210,7 @@ int jump(void) {
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
   at_end = 0;
-  direction = 1;
+  pass_num = 1;
   return 0;
 }
 
@@ -247,8 +222,7 @@ int turn(void) {
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
   delay(TURN45_INTERVAL);
   // Turn until line
-  while (center_line < LINE_THRESHOLD) {
-    update_lines();
+  while (find_offset(LINE_THRESHOLD) != 0) {
     pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
     pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
     pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
@@ -259,20 +233,23 @@ int turn(void) {
   pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-  if (direction == 1) {
-    direction = -1;
+  if (pass_num == 1) {
+    pass_num = -1;
   }
   at_end = 0;
   return 0;
 }
 
 int grab(void) {
+
   // Retract arm fully
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
   delay(GRAB_INTERVAL);
+
   // Grab block
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   delay(GRAB_INTERVAL);
+
   // Return arm to initial position
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
   delay(GRAB_INTERVAL);
@@ -280,13 +257,20 @@ int grab(void) {
 }
 
 int align(void) {
-  if (direction == 0) {
-    return 1;
+
+  // Wiggle onto line
+  int x = find_offset(LINE_THRESHOLD);
+
+  // Reverse to end
+
+  // Set pass direction
+  if (pass_num == 0) {
+    return 1; // should not receive align when not on a pass
   }
-  else if (direction == 1) {
+  else if (pass_num == 1) {
     at_end = 1;
   }
-  else if (direction == -1) {
+  else if (pass_num == -1) {
     at_end = 2;
   }
   return 0;
@@ -305,14 +289,47 @@ int wait(void) {
   return 0;
 }
 
-void update_lines(void) {
-  center_line = analogRead(CENTER_LINE_PIN);
-  left_line = analogRead(LEFT_LINE_PIN);
-  right_line = analogRead(RIGHT_LINE_PIN);
+int find_offset(int threshold) {
+  int l = analogRead(LEFT_LINE_PIN);
+  int c = analogRead(CENTER_LINE_PIN);
+  int r = analogRead(RIGHT_LINE_PIN);
+  int x = 0;
+  if ((l > threshold) && (c < threshold) && (r < threshold)) {
+    x = 2; // very off
+  }
+  else if ((l > threshold) && (c > threshold) && (r < threshold)) {
+    x = 1; // midly off
+  }
+  else if ((l < threshold) && (c > threshold) && (r < threshold)) {
+    x = 0; // on target
+  }
+  else if ((l < threshold) && (c > threshold) && (r > threshold)) {
+    x = -1;  // mildy off
+  }
+  else if ((l < threshold) && (c < threshold) && (r > threshold)) {
+    x = -2; // very off
+  }
+  else if ((l > threshold) && (c > threshold) && (r > threshold)) {
+    x = 65536; // at end
+  }
+  else if ((l < threshold) && (c < threshold) && (r < threshold)) {
+    x = -65536; // off entirely
+  }
+  return x;
 }
 
-void update_plant(void) {
-  int dist = analogRead(DIST_SENSOR_PIN);
-  at_plant = 0;
+boolean find_plant(int N, int threshold) {
+  int sum = 0;
+  for (int i = 0; i < N; i++) {
+    sum += analogRead(DIST_SENSOR_PIN);
+  }
+  int mean = sum / N;
+  if (mean > threshold) {
+    return true;
+  }
+  else {
+    return false;
+  }
 }
+
 
