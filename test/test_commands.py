@@ -1,5 +1,5 @@
 s = serial.Serial('/dev/ttyACM0', 9600)
-while True
+while True:
     try:
         c = raw_input('Enter command: ')
         s.write(c)
