@@ -26,7 +26,7 @@ const int REPEAT_COMMAND = 'R';
 const int UNKNOWN_COMMAND = '?';
 
 /* --- Line Following --- */
-const int LINE_THRESHOLD = 700;
+const int LINE_THRESHOLD = 500;
 
 /* --- I/O Pins --- */
 const int CENTER_LINE_PIN = A0;
@@ -83,7 +83,6 @@ void setup() {
   pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + BL);
   pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + BR);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX); // it's fixed rotation, not continous
-
 }
 
 /* --- Loop --- */
@@ -94,14 +93,27 @@ void loop() {
     case BEGIN_COMMAND:
       command = BEGIN_COMMAND;
       result = begin_run();
+      if (result == 0) { pass_num = 1; }
       break;
     case ALIGN_COMMAND:
       command = ALIGN_COMMAND;
       result = align();
+      if (pass_num == 1) {
+        at_end = 1;
+      }
+      else if (pass_num == -1) {
+        at_end = 2;
+      }
       break;
     case SEEK_COMMAND:
       command = SEEK_COMMAND;
       result = seek_plant();
+      if (pass_num == 1) {
+        at_end = 2;
+      }
+      else if (pass_num == -1) {
+        at_end = 1;
+      }
       break;
     case GRAB_COMMAND:
       command = GRAB_COMMAND;
@@ -110,10 +122,20 @@ void loop() {
     case TURN_COMMAND:
       command = TURN_COMMAND;
       result = turn();
+      if (result == 0) {
+        at_end = 0;
+        if (pass_num == 1) {
+          pass_num = -1;
+        }
+      }
       break;
     case JUMP_COMMAND:
       command = JUMP_COMMAND;
       result = jump();
+      if (result == 0) {
+        at_end = 0;
+        pass_num = 1;
+      }
       break;
     case FINISH_COMMAND:
       command = FINISH_COMMAND;
@@ -143,224 +165,194 @@ int begin_run(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
 
   // Get past black square
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 2+ FL);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 30 + FR);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 2 + BL);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 30 + BR);
+  set_servos(5, -30, 5, -30); // Wide left sweep
   delay(3000);
-  while (abs(find_offset(LINE_THRESHOLD)) > 1) {
+
+  // Run until line reached
+  while (abs(find_offset(LINE_THRESHOLD)) > 2) {
     delay(20);
   }
 
+  // Find Row
+  int i = 0;
+  int dir = 1;
+  while (find_offset(LINE_THRESHOLD) != 0) {
+
+    // L-curve search
+    if ((find_offset(LINE_THRESHOLD) == -255) && (dir = 1)) {
+      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 10+ FL);
+      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 + FR);
+      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 10 + BL);
+      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 20 + BR);
+    }
+
+    // R-curve search
+    if ((find_offset(LINE_THRESHOLD) == -255) && (dir = -1)) {
+      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20+ FL);
+      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 10 + FR);
+      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
+      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 10 + BR);
+    }
+
+    i++;
+    if (i > 20) {
+      i = 0;
+      if (dir == 1) {
+        dir = -1;
+      }
+      else if (dir == -1) {
+        dir = 1;
+      }
+    }
+  }
+
   // Halt
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + FL);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + FR);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + BL);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + BR);
-  pass_num = 1;
+  set_servos(0, 0, 0, 0);
+
   return 0;
 }
 
 int align(void) {
-
+  /*
+    Aligns robot at end of T.
+   
+   1. Wiggle onto line
+   2. Reverse to end of line  
+   */
+   
   // Wiggle onto line
   int x = find_offset(LINE_THRESHOLD);
-  while (x != 0) {
+  int i = 0;
+  while (i < 10) {
+    x = find_offset(LINE_THRESHOLD);
+    if (x == 0) {
+      set_servos(10, -10, 10, -10);
+      i++;
+    }
+    else {
+      i = 0;
+      if (x == -1) {
+        set_servos(15, -5, 15, -5);
+      }
+      else if (x == -2) {
+        set_servos(20, 20, 20, 20);
+      }
+      else if (x == 1) {
+        set_servos(5, -20, 5, -20);
+      }
+      else if (x == 2) {
+        set_servos(-20, -20, -20, -20);
+      }
+      else if (x == -255) {
+        set_servos(-20, -20, -20, -20);
+      }
+      else if (x == 255) {
+        set_servos(20, -20, 20, -20);
+      }
+    }
+    delay(50);
+  }
+
+  // Reverse to end
+  int dir = 0;
+  while (x != 255)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 5 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 5 + BR);
+      set_servos(-20, 10, -20, 10);
+      dir = -1;
     }
     else if (x == -2) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + 20 + BR);
+      set_servos(-20, -20, -20, -20);
+      dir = -1;
     }
     else if (x == 1) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 5 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 5 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 20 + BR);
-      delay(100);
+      set_servos(-10, 20, -10, 20);
+      dir = 1;
     }
     else if (x == 2) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF - 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF - 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 20 + BR);
+      set_servos(20, 20, 20, 20);
+      dir = 1;
+    }
+    else if (x == 0) {
+      set_servos(-10, 10, -10, 10);
+      dir = 0;
     }
     else if (x == -255) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 20 + BR);
+      if (dir == 1) {
+        set_servos(20, 20, 20, 20); // Turn right
+      }
+      else if (dir == -1) {
+        set_servos(-20, -20, -20, -20); // Turn left
+      }
+      else {
+        set_servos(10, -10, 10, -10); // Pull forward
+      }
     }
-    else if (x == 255) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 20 + BR);
-    }
-    delay(100);
   }
-
-  // Halt 
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + FL);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + FR);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + BL);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + BR);
-
-  // Set pass direction
-  if (pass_num == 0) {
-    return 1; // should not receive align when not on a pass
-  }
-  else if (pass_num == 1) {
-    at_end = 1;
-  }
-  else if (pass_num == -1) {
-    at_end = 2;
-  }
+  set_servos(0, 0, 0, 0); // Halt 
   return 0;
 }
 
 int seek_plant(void) {
   at_end = 0; // reset at_end global to zero (no longer will be at end once seek is executed)
   int x = find_offset(LINE_THRESHOLD);
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20 + FL);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 +FR);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 10 + BR);
-  delay(100);
+  set_servos(20, -20, 20, -20);
+  delay(500);
   while (x == -255) {
     x = find_offset(LINE_THRESHOLD);
-    pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 15 + FL);
-    pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 15 +FR);
-    pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 15 + BL);
-    pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 15 + BR);
+    set_servos(15, -15, 15, -15);
     delay(500);
   }
   while (x != 255)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 10 + FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 10 + BR);
+      set_servos(20, -10, 20, -10);
     }
     else if (x == -2) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + 20 + BR);
+      set_servos(20, 20, 20, 20);
     }
     else if (x == 1) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 10 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 10 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 20 + BR);
+      set_servos(10, -20, 10, -20);
     }
     else if (x == 2) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF - 20 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 20 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF - 20 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 20 + BR);
+      set_servos(-20, -20, -20, -20);
     }
     else if (x == 0) {
-      pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + 10 + FL);
-      pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - 10 +FR);
-      pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + 10 + BL);
-      pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - 10 + BR);
-    }
-    else {
-      break;
+      set_servos(15, -15, 15, -15);
     }
     delay(100);
   }
-  // Stop servos
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-  // Set globals
-  if (pass_num == 1) {
-    at_end = 2;
-  }
-  else if (pass_num == -1) {
-    at_end = 1;
-  }
+  set_servos(0, 0, 0, 0); // Stop servos
   return 0;
 }
 
 int jump(void) {
-  // Turn Left 45 degs
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+  set_servos(15, 15, 15, 15); 
   delay(TURN45_INTERVAL);
-  // Turn Left 90 degs
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+  set_servos(15, -15, 15, -15);
   delay(TURN90_INTERVAL);
-  // Run until line
   while (find_offset (LINE_THRESHOLD) != 0) {
-    pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-    pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
-    pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-    pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF - SERVO_SLOW);
+    set_servos(15, -15, 15, -15);
   }
-  // Stop
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-  at_end = 0;
-  pass_num = 1;
+  set_servos(0, 0, 0, 0);  // Stop
   return 0;
 }
 
 int turn(void) {
-  // Turn 45 degrees
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+  set_servos(15, 15, 15, 15);
   delay(TURN45_INTERVAL);
-  // Turn until line
   while (abs(find_offset(LINE_THRESHOLD)) > 0) {
-    pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-    pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-    pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
-    pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + SERVO_SLOW);
+    set_servos(15, 15, 15, 15);
   }
-  // Stop
-  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF);
-  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF);
-  if (pass_num == 1) {
-    pass_num = -1;
-  }
-  at_end = 0;
+  set_servos(0, 0, 0, 0);
   return 0;
 }
 
 int grab(void) {
-
-  // Retract arm fully
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
   delay(GRAB_INTERVAL);
-
-  // Grab block
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);   // Grab block
   delay(GRAB_INTERVAL);
-
-  // Return arm to initial position
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
   delay(GRAB_INTERVAL);
   return 0;
@@ -406,9 +398,13 @@ int find_offset(int threshold) {
   else if ((l < threshold) && (c < threshold) && (r < threshold)) {
     x = -255; // off entirely
   }
-  else {
+  else if ((l > threshold) && (c > threshold) && (r > threshold)){
     x = 255;
   }
+  else {
+    x = 0;
+  }
+  Serial.println(x);
   return x;
 }
 
@@ -425,6 +421,14 @@ boolean find_plant(int N, int threshold) {
     return false;
   }
 }
+
+void set_servos(int fl, int fr, int bl, int br) {
+  pwm.setPWM(FRONT_LEFT_SERVO, 0, SERVO_OFF + fl + FL);
+  pwm.setPWM(FRONT_RIGHT_SERVO, 0, SERVO_OFF + fr +FR);
+  pwm.setPWM(BACK_LEFT_SERVO, 0, SERVO_OFF + bl + BL);
+  pwm.setPWM(BACK_RIGHT_SERVO, 0, SERVO_OFF + br + BR);
+}
+
 
 
 

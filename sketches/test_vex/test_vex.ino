@@ -4,9 +4,9 @@
 const int BAUD = 9600;
 
 /* --- I/O Pins --- */
-const int CENTER_LINE_PIN = A2;
-const int LEFT_LINE_PIN = A0;
-const int RIGHT_LINE_PIN = A1;
+const int CENTER_LINE_PIN = A0;
+const int LEFT_LINE_PIN = A1;
+const int RIGHT_LINE_PIN = A2;
 
 /* --- Setup --- */
 void setup() {
