@@ -409,7 +409,6 @@ int find_offset(int threshold) {
   else {
     x = 255;
   }
-  Serial.println(x);
   return x;
 }
 
