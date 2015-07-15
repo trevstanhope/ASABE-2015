@@ -11,7 +11,7 @@
 #	make upload
 
 ARDUINO_DIR  = /usr/share/arduino
-TARGET       = RCU
+TARGET       = ECU
 BOARD_TAG    = uno
 ARDUINO_PORT = /dev/ttyACM0
 ARDUINO_LIBS = Adafruit_PWMServoDriver Wire
