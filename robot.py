@@ -182,9 +182,8 @@ class Robot:
             except Exception as e:
                 self.pretty_print('RUN', 'Error: %s' % str(e))
                 self.__close__()
-                break
+                raise e
 
 if __name__ == '__main__':
     robot = Robot(CONFIG_PATH)
     robot.run()
-    exit(0)
