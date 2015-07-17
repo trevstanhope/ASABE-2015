@@ -9,7 +9,6 @@ const int TURN45_INTERVAL = 1000;
 const int TURN90_INTERVAL = 3000;
 const int GRAB_INTERVAL = 1000;
 const int STEP_INTERVAL = 2200; // interval to move fully into finishing square
-const int DIST_SAMPLES = 20;
 
 /* --- Serial / Commands --- */
 const int BAUD = 9600;
@@ -25,15 +24,15 @@ const int WAIT_COMMAND = 'W';
 const int REPEAT_COMMAND = 'R';
 const int UNKNOWN_COMMAND = '?';
 
-/* --- Analog Constants --- */
-const int LINE_THRESHOLD = 500;
-const int DIST_THRESHOLD = 500;
+/* --- Constants --- */
+const int LINE_THRESHOLD = 500; // i.e. 2.5 volts
+const int DISTANCE_THRESHOLD = 40; // cm
 
 /* --- I/O Pins --- */
 const int CENTER_LINE_PIN = A0;
 const int LEFT_LINE_PIN = A1;
 const int RIGHT_LINE_PIN = A2;
-const int DIST_SENSOR_PIN = A3;
+const int DIST_SENSOR_PIN = 7;
 // A4 - A5 reserved
 
 /* --- PWM Servos --- */
@@ -55,7 +54,7 @@ const int SERVO_SPEED = 15;
 const int FR = -3;
 const int FL = -2;
 const int BR = -4;
-const int BL = -8;
+const int BL = -2;
 
 /* --- Variables --- */
 char command;
@@ -109,11 +108,17 @@ void loop() {
     case SEEK_COMMAND:
       command = SEEK_COMMAND;
       result = seek_plant();
-      if (pass_num == 1) {
-        at_end = 2;
+      if (result == 1) {
+        at_plant = 1;
       }
-      else if (pass_num == -1) {
-        at_end = 1;
+      else {
+        at_plant = 0;
+        if (pass_num == 1) {
+          at_end = 2;
+        }
+        else if (pass_num == -1) {
+          at_end = 1;
+        }
       }
       break;
     case GRAB_COMMAND:
@@ -278,8 +283,35 @@ int align(void) {
 int seek_plant(void) {
   at_end = 0; // reset at_end global to zero (no longer will be at end once seek is executed)
   int x = find_offset(LINE_THRESHOLD);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
+  delay(GRAB_INTERVAL);
   set_servos(20, -20, 20, -20);
   delay(500);
+  
+  // Move past plant
+  int i = 0;
+  while (i < 50)  {
+    x = find_offset(LINE_THRESHOLD);
+    if (x == -1) {
+      set_servos(20, -10, 20, -10);
+    }
+    else if (x == -2) {
+      set_servos(20, 20, 20, 20);
+    }
+    else if (x == 1) {
+      set_servos(10, -20, 10, -20);
+    }
+    else if (x == 2) {
+      set_servos(-20, -20, -20, -20);
+    }
+    else if (x == 0) {
+      set_servos(15, -15, 15, -15);
+    }
+    delay(50);
+    i++;
+  }
+  
+  // Search until next plant
   while (x != 255)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
@@ -297,12 +329,15 @@ int seek_plant(void) {
     else if (x == 0) {
       set_servos(15, -15, 15, -15);
     }
-    if (find_plant(DIST_SAMPLES, DIST_THRESHOLD)) {
-      Serial.println("At plant!");
-      // set_servos(0, 0, 0, 0); // Stop servos
-      // return 1;
+    if (find_distance() < DISTANCE_THRESHOLD) {
+      int d = find_distance();
+      while (find_distance() <= d) {
+        delay(50);
+        d = find_distance();
+      }
+      set_servos(0,0,0,0);
+      return 1;
     }
-    delay(100);
   }
   set_servos(0, 0, 0, 0); // Stop servos
   return 0;
@@ -331,10 +366,10 @@ int turn(void) {
 }
 
 int grab(void) {
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
-  delay(GRAB_INTERVAL);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);   // Grab block
-  delay(GRAB_INTERVAL);
+  for (int i = MICROSERVO_MIN; i < MICROSERVO_MAX; i++) {
+    pwm.setPWM(ARM_SERVO, 0, i);   // Grab block
+    delay(2);
+  }
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
   delay(GRAB_INTERVAL);
   return 0;
@@ -395,19 +430,28 @@ int find_offset(int threshold) {
   return x;
 }
 
-boolean find_plant(int N, int threshold) {
+int find_distance(void) {
   int sum = 0;
+  int N = 1;
   for (int i = 0; i < N; i++) {
-    sum += analogRead(DIST_SENSOR_PIN);
+    pinMode(DIST_SENSOR_PIN, OUTPUT);
+    digitalWrite(DIST_SENSOR_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(DIST_SENSOR_PIN, HIGH);
+    delayMicroseconds(5);
+    digitalWrite(DIST_SENSOR_PIN, LOW);
+    pinMode(DIST_SENSOR_PIN, INPUT);
+    long duration = pulseIn(DIST_SENSOR_PIN, HIGH);
+    // According to Parallax's datasheet for the PING))), there are
+    // 73.746 microseconds per inch (i.e. sound travels at 1130 feet per
+    // second).  This gives the distance travelled by the ping, outbound
+    // and return, so we divide by 2 to get the distance of the obstacle.
+    // See: http://www.parallax.com/dl/docs/prod/acc/28015-PING-v1.3.pdf
+    int distance = duration / 29 / 2; // inches
+    sum = sum + distance;
   }
-  int mean = sum / N;
-  Serial.println(mean);
-  if (mean > threshold) {
-    return true;
-  }
-  else {
-    return false;
-  }
+  Serial.println(sum / N);
+  return sum / N;
 }
 
 void set_servos(int fl, int fr, int bl, int br) {

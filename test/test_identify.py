@@ -8,33 +8,38 @@ SATURATION = 1.0
 BRIGHTNESS = 0.5
 CONTRAST = 0.5
 NUM_FLUSH = 30
-FILENAME = sys.argv[1]
+TALL_THRESHOLD = 220 # pixels
+try:
+    FILENAME = sys.argv[1]
+    bgr=cv2.imread(FILENAME)
+except:
+    cam = cv2.VideoCapture(0)
+    cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+    cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+    cam.set(cv.CV_CAP_PROP_SATURATION, SATURATION)
+    cam.set(cv.CV_CAP_PROP_BRIGHTNESS, BRIGHTNESS)
+    cam.set(cv.CV_CAP_PROP_CONTRAST, CONTRAST)
+    
+    for i in range(NUM_FLUSH):
+        (s, bgr) = cam.read()
+    if not s:
+        exit(1)        
 
-#cam = cv2.VideoCapture(0)
-#cam.set(cv.CV_CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
-#cam.set(cv.CV_CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-#cam.set(cv.CV_CAP_PROP_SATURATION, SATURATION)
-#cam.set(cv.CV_CAP_PROP_BRIGHTNESS, BRIGHTNESS)
-#cam.set(cv.CV_CAP_PROP_CONTRAST, CONTRAST)
-
-#for i in range(NUM_FLUSH):
-#    (s, bgr) = cam.read()
-#if s:
-#    bgr = np.rot90(bgr, 3)
-#    cv2.imshow('', bgr)
-#    cv2.waitKey(0)
-#    cv2.imwrite(FILENAME, bgr)
-
-# Load image
-bgr=cv2.imread(FILENAME)
+# Blur image
 bgr=cv2.medianBlur(bgr,5)
 detected_areas = [(0,0,0,0,0)] * 3
 
 ## Green
-greenlow = np.array([45,0,0])
-greenhigh = np.array([75,255,255])
+"""
+Green detection needs a high-pass to eliminate low saturation detection which is both light and dark
+due to the HSV transform of cv2
+"""
+greenlow = np.array([30,30,0]) 
+greenhigh = np.array([100,255,255])
 hsv = cv2.cvtColor(bgr,cv2.COLOR_BGR2HSV)
 mask = cv2.inRange(hsv,greenlow,greenhigh)
+cv2.imshow('',mask)
+cv2.waitKey(0)
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
 kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2))
 opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -48,12 +53,17 @@ x,y,w,h = cv2.boundingRect(cnt)
 detected_areas[0] = (x, y, w, h)
 
 ## Yellow
-yellowlow = np.array([15,0,0])
-yellowhigh = np.array([45,255,255])
+"""
+Needs high pass to remove low saturation yellow-white
+"""
+yellowlow = np.array([0,128,0])
+yellowhigh = np.array([45, 255, 255])
 hsv = cv2.cvtColor(bgr,cv2.COLOR_BGR2HSV)
 mask = cv2.inRange(hsv,yellowlow,yellowhigh)
-kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-kernel2=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2))
+cv2.imshow('',mask)
+cv2.waitKey(0)
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2))
 opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
 closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
 ret,thresh = cv2.threshold(closing,127,255,0)
@@ -73,8 +83,10 @@ hsv = cv2.cvtColor(bgr,cv2.COLOR_BGR2HSV)
 mask1 = cv2.inRange(hsv,brownlow,brownhigh)
 mask2 = cv2.inRange(hsv,brownlow1,brownhigh1)
 mask3 = mask1 + mask2
-kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-kernel2=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2))
+cv2.imshow('', mask3)
+cv2.waitKey(0)
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+kernel2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2))
 opening = cv2.morphologyEx(mask3, cv2.MORPH_OPEN, kernel)
 closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
 ret,thresh = cv2.threshold(closing,127,255,0)
@@ -87,6 +99,7 @@ detected_areas[2] = (x, y, w, h)
 
 ## Check Largest
 areas = [w*h for (x, y, w, h) in detected_areas]
+print areas
 max_area = max(areas)
 i = np.argmax(areas)
 (x, y, w, h) = detected_areas[i]
@@ -101,7 +114,7 @@ elif i == 2:
     color = 'brown'
 else:
     exit(1)
-if h > 250:
+if h > TALL_THRESHOLD:
     height = 'tall'
 else:
     height = 'short'
