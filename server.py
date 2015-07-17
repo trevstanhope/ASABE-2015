@@ -125,6 +125,7 @@ class Server:
     
     ## Statemachine Functions
     def __init_statemachine__(self):
+        self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3), np.uint8)
         self.running = False
         self.num_actions = 0
         self.row_num = 0
@@ -198,7 +199,8 @@ class Server:
                 if request['at_end'] == 1:
                     action = 'jump'
                 elif request['at_plant'] != 0:
-                    (color, height) = self.identify_plant(request['img'])
+                    (color, height, bgr) = self.identify_plant(request['img'])
+                    self.bgr = bgr
                     self.observed_plants.append((row, plant, color, height))
                     if self.collected_plants[color][height] == True: # check if plant type has been seen yet
                         action = 'seek'
@@ -268,11 +270,12 @@ class Server:
             color = 'brown'
         else:
             exit(1)
-        if h > TALL_THRESHOLD:
+        if h > self.CAMERA_TALL_THRESHOLD:
             height = 'tall'
         else:
             height = 'short'
-        return color, height
+        cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
+        return color, height, bgr
         
     ## CherryPy Functions
     def __init_tasks__(self):
@@ -286,8 +289,7 @@ class Server:
         """ Listen for Next Sample """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Listening for nodes ...')
         req = self.receive_request()
-        bgr = np.rot90(np.array(req['bgr'], np.uint8), 3)
-        self.gui.draw_camera(bgr)
+        self.bgr = np.array(req['bgr'])
         action = self.decide_action(req)
         resp = self.send_response(action)
         event_id = self.store_event(req, resp)
@@ -295,6 +297,7 @@ class Server:
         """ Update the GUI """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Updating GUI ...')
         robot_position = (self.row_num, self.at_plant, self.pass_num, self.at_end)
+        self.gui.draw_camera(self.bgr)
         self.gui.draw_board(self.observed_plants, robot_position)
         if self.running:
             self.clock = self.end_time - time.time()
