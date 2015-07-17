@@ -187,3 +187,4 @@ class Robot:
 if __name__ == '__main__':
     robot = Robot(CONFIG_PATH)
     robot.run()
+    exit(0)
