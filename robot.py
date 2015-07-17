@@ -104,7 +104,7 @@ class Robot:
         if s:
             return bgr
         else:
-            return np.zeros((self.CAMERA_WIDTH, self.CAMERA_HEIGHT, 3))
+            return np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
     
     ## Send request to server
     def request_action(self, bgr, status):
@@ -172,7 +172,7 @@ class Robot:
             'command' : '?',
             'result' : 255
         }
-        bgr = np.zeros((self.CAMERA_WIDTH, self.CAMERA_HEIGHT, 3))
+        bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
         while True:
             try:
                 action = self.request_action(bgr, status)
