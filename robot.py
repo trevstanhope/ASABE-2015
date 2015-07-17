@@ -43,7 +43,7 @@ class Robot:
     ## Close
     def __close__(self):
         self.pretty_print('WARN', 'Shutdown triggered!')
-        sys.exit(1)
+        sys.exit()
     
     ## Pretty Print
     def pretty_print(self, task, msg):
