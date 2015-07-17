@@ -38,10 +38,10 @@ class Robot:
             self.init_arduino()
             self.init_cam()
         except:
-            self.__close__()
+            self.close()
 
     ## Close
-    def __close__(self):
+    def close(self):
         self.pretty_print('WARN', 'Shutdown triggered!')
         sys.exit()
     
@@ -181,8 +181,8 @@ class Robot:
                     bgr = self.capture_image()
             except Exception as e:
                 self.pretty_print('RUN', 'Error: %s' % str(e))
-                self.__close__()
-                raise e
+                self.close()
+                break
 
 if __name__ == '__main__':
     robot = Robot(CONFIG_PATH)
