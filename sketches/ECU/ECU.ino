@@ -3,7 +3,7 @@
 #include <Adafruit_PWMServoDriver.h>
 
 /* --- Time Constants --- */
-const int WAIT_INTERVAL = 1000;
+const int WAIT_INTERVAL = 100;
 const int BEGIN_INTERVAL = 2000;
 const int TURN45_INTERVAL = 1000;
 const int TURN90_INTERVAL = 3000;
@@ -221,7 +221,6 @@ int align(void) {
   int i = 0;
   while (i <= 15) {
     x = find_offset(LINE_THRESHOLD);
-    Serial.println(x);
     if (x == 0) {
       set_servos(10, -10, 10, -10);
       i++;
@@ -281,6 +280,7 @@ int align(void) {
 }
 
 int seek_plant(void) {
+  at_plant = 0;
   at_end = 0; // reset at_end global to zero (no longer will be at end once seek is executed)
   int x = find_offset(LINE_THRESHOLD);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
@@ -450,7 +450,7 @@ int find_distance(void) {
     int distance = duration / 29 / 2; // inches
     sum = sum + distance;
   }
-  Serial.println(sum / N);
+  // Serial.println(sum / N);
   return sum / N;
 }
 
