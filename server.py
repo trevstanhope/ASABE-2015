@@ -125,7 +125,7 @@ class Server:
     
     ## Statemachine Functions
     def __init_statemachine__(self):
-        self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3), np.uint8)
+        self.bgr = cv2.imread(self.GUI_CAMERA_IMAGE)
         self.running = False
         self.num_actions = 0
         self.row_num = 0
