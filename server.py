@@ -289,7 +289,7 @@ class Server:
         """ Listen for Next Sample """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Listening for nodes ...')
         req = self.receive_request()
-        self.bgr = np.array(req['bgr'])
+        self.bgr = np.array(req['bgr'], np.uint8)
         action = self.decide_action(req)
         resp = self.send_response(action)
         event_id = self.store_event(req, resp)
@@ -505,8 +505,8 @@ class GUI(object):
     def draw_camera(self, bgr):
         try:
             self.camera_bgr = bgr
-            (W,H,D) = self.camera_bgr.shape
-            self.camera_pix = gtk.gdk.pixbuf_new_from_array(self.camera_bgr, gtk.gdk.COLORSPACE_RGB, 8)
+            rgb = cv2.cvtColor(self.camera_bgr, cv2.COLOR_BGR2RGB)
+            self.camera_pix = gtk.gdk.pixbuf_new_from_array(rgb, gtk.gdk.COLORSPACE_RGB, 8)
             self.camera_img.set_from_pixbuf(self.camera_pix)
         except Exception as e:
             print str(e)
