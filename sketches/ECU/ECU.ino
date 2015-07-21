@@ -8,6 +8,7 @@ const int BEGIN_INTERVAL = 2000;
 const int TURN45_INTERVAL = 1000;
 const int TURN90_INTERVAL = 3000;
 const int GRAB_INTERVAL = 1000;
+const int TAP_INTERVAL = 500;
 const int STEP_INTERVAL = 2200; // interval to move fully into finishing square
 
 /* --- Serial / Commands --- */
@@ -368,8 +369,16 @@ int turn(void) {
 int grab(void) {
   for (int i = MICROSERVO_MIN; i < MICROSERVO_MAX; i++) {
     pwm.setPWM(ARM_SERVO, 0, i);   // Grab block
-    delay(2);
+    delay(1);
   }
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 100 );
+  delay(TAP_INTERVAL);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
+  delay(TAP_INTERVAL);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX  - 100 );
+  delay(TAP_INTERVAL);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
+  delay(TAP_INTERVAL);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
   delay(GRAB_INTERVAL);
   return 0;
@@ -391,6 +400,7 @@ int finish_run(void) {
 }
 
 int wait(void) {
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   delay(WAIT_INTERVAL);
   return 0;
 }
