@@ -46,7 +46,7 @@ const int BACK_LEFT_SERVO = 2;
 const int BACK_RIGHT_SERVO = 3;
 const int ARM_SERVO = 4;
 const int MICROSERVO_MIN = 150;
-const int MICROSERVO_ZERO = 400; // this is the servo off pulse length
+const int MICROSERVO_ZERO = 300; // this is the servo off pulse length
 const int MICROSERVO_MAX =  600; // this is the 'maximum' pulse length count (out of 4096)
 const int SERVO_MIN = 300;
 const int SERVO_OFF = 381; // this is the servo off pulse length
@@ -191,7 +191,7 @@ void loop() {
 int begin_run(void) {
 
   // Move Arm
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
 
   // Get past black square
   set_servos(5, -30, 5, -30); // Wide left sweep
@@ -239,6 +239,7 @@ int align(void) {
   */
 
   // Wiggle onto line
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   int x = find_offset(LINE_THRESHOLD);
   int i = 0;
   while (i <= 15) {
@@ -306,7 +307,7 @@ int seek_plant(void) {
   // Prepare for movement
   int x = find_offset(LINE_THRESHOLD);
   int actions = ACTIONS_PER_PLANT;
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO); // Retract arm fully
   delay(GRAB_INTERVAL);
 
   // Move past plant
@@ -329,7 +330,10 @@ int seek_plant(void) {
       set_servos(15, -15, 15, -15);
     }
     else if (x == 255) {
-      return 0; // at end
+      set_servos(10, -10, 10, -10);
+    }
+    else if (x == -255) {
+      set_servos(10, -15, 10, -15);
     }
     delay(50);
     i++;
@@ -376,7 +380,7 @@ int seek_end(void) {
   
   // Prepare for movement
   int x = find_offset(LINE_THRESHOLD);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO); // Retract arm fully
   delay(GRAB_INTERVAL);
   
   // Search until end
@@ -404,7 +408,7 @@ int seek_end(void) {
 }
 
 int jump(void) {
-  // Get past black square
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   set_servos(15, -40, 15, -40); // Wide left sweep
   delay(3000);
   // Run until line reached
@@ -416,6 +420,7 @@ int jump(void) {
 }
 
 int turn(void) {
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   set_servos(40, 40, 40, 40);
   delay(TURN45_INTERVAL);
   while (abs(find_offset(LINE_THRESHOLD)) > 0) {
@@ -431,10 +436,6 @@ int grab(void) {
     delay(1);
   }
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 100 );
-  delay(TAP_INTERVAL);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
-  delay(TAP_INTERVAL);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX  - 100);
   delay(TAP_INTERVAL);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   delay(TAP_INTERVAL);
