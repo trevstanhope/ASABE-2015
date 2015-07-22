@@ -79,7 +79,8 @@ class Server:
         try:
             timestamp = datetime.strftime(datetime.now(), self.TIME_FORMAT)
             collection_name = datetime.strftime(datetime.now(), self.MONGO_COL) # db to save to
-            mongo_db = self.mongo_client[self.MONGO_DB]
+            db_name = datetime.strftime(datetime.now(), self.MONGO_DB) # db to save to
+            mongo_db = self.mongo_client[db_name]
             collection = mongo_db[collection_name]
             event = {
                 'request' : request,
@@ -210,6 +211,8 @@ class Server:
                 elif request['at_plant'] != 0:
                     bgr = np.array(request['bgr'], np.uint8)
                     (color, height, bgr) = self.identify_plant(bgr)
+                    self.pretty_print('DECIDE', 'Color: %s' % color)
+                    self.pretty_print('DECIDE', 'Height: %s' % height)
                     self.bgr = bgr
                     if self.pass_num == 1:
                         row = self.row_num
@@ -332,7 +335,7 @@ class Server:
         self.bgr = np.array(req['bgr'], np.uint8)
         action = self.decide_action(req)
         resp = self.send_response(action)
-        event_id = self.store_event(req, resp)
+        if self.MONGO_ENABLED: event_id = self.store_event(req, resp)
     def refresh(self):
         """ Update the GUI """
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Updating GUI ...')

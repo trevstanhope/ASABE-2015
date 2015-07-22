@@ -97,9 +97,9 @@ class Robot:
             raise e
 
     ## Capture image
-    def capture_image(self, n_flush=30):
+    def capture_image(self):
         if self.VERBOSE: self.pretty_print("CTRL", "Capturing image ...")
-        for i in range(n_flush):
+        for i in range(self.CAMERA_FLUSH):
             (s, bgr) = self.camera.read()
         if s:
             return bgr
