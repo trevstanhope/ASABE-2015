@@ -154,8 +154,13 @@ class Robot:
                 try:
                     string = self.arduino.readline()
                     status = ast.literal_eval(string) # parse status response
-                except Exception as e:
+                except SyntaxError as e:
                     self.pretty_print('CTRL', 'Error: %s (%s)' % (str(e), string))
+                    time.sleep(wait)
+                except ValueError as e:
+                    self.pretty_print('CTRL', 'Error: %s (%s)' % (str(e), string))
+                    self.pretty_print("CTRL", "Requesting repeat of last command ...")
+                    self.arduino.write(str(self.ACTIONS['repeat'])) # send command
                     time.sleep(wait)
             self.pretty_print("CTRL", "Status: %s" % status)
             self.last_action = action
