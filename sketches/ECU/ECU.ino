@@ -17,6 +17,7 @@ const int OUTPUT_LENGTH = 256;
 const int BEGIN_COMMAND = 'B';
 const int ALIGN_COMMAND  = 'A';
 const int SEEK_COMMAND  = 'S';
+const int END_COMMAND  = 'E';
 const int GRAB_COMMAND  = 'G';
 const int TURN_COMMAND  = 'T';
 const int JUMP_COMMAND  = 'J';
@@ -118,6 +119,19 @@ void loop() {
         if (at_plant > 5) { at_plant = 5; }
       }
       else {
+        at_plant = 0;
+        if (pass_num == 1) {
+          at_end = 2;
+        }
+        else if (pass_num == 2) {
+          at_end = 1;
+        }
+      }
+      break;
+    case END_COMMAND:
+      command = END_COMMAND;
+      result = seek_end();
+      if (result == 0) {
         at_plant = 0;
         if (pass_num == 1) {
           at_end = 2;
@@ -353,6 +367,37 @@ int seek_plant(void) {
     }
     delay(50);
     actions++;
+  }
+  set_servos(0, 0, 0, 0); // Stop servos
+  return 0;
+}
+
+int seek_end(void) {
+  
+  // Prepare for movement
+  int x = find_offset(LINE_THRESHOLD);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
+  delay(GRAB_INTERVAL);
+  
+  // Search until end
+  while (x != 255)  {
+    x = find_offset(LINE_THRESHOLD);
+    if (x == -1) {
+      set_servos(20, -10, 20, -10);
+    }
+    else if (x == -2) {
+      set_servos(20, 20, 20, 20);
+    }
+    else if (x == 1) {
+      set_servos(10, -20, 10, -20);
+    }
+    else if (x == 2) {
+      set_servos(-20, -20, -20, -20);
+    }
+    else if (x == 0) {
+      set_servos(15, -15, 15, -15);
+    }
+    delay(50);
   }
   set_servos(0, 0, 0, 0); // Stop servos
   return 0;

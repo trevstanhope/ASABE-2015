@@ -40,6 +40,7 @@
         "begin" : "B",
         "align" : "A",
         "seek" : "S",
+        "end" : "E",
         "grab" : "G",
         "turn" : "T",
         "jump" : "J",

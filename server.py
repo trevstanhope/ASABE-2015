@@ -212,11 +212,13 @@ class Server:
                         row = self.row_num + 1
                         plant = 6 - self.at_plant # run plants backward
                     self.observed_plants.append((row, plant, color, height))
+                    self.plant_num += 1
                     if self.collected_plants[color][height] == True: # check if plant type has been seen yet
                         action = 'seek'
                     else:
                         self.collected_plants[color][height] = True # if not, set to true and grab
                         action = 'grab'
+                        self.samples_num += 1
             if request['last_action'] == 'turn':
                 action = 'align'
             if request['last_action'] == 'grab':
@@ -468,7 +470,10 @@ class GUI(object):
                 if row_num == 0: # if at beginning
                     (center_x, center_y) = (W - 55, H - 55) ## 55, 55 is best
                 elif at_plant != 0:  # if at plant
-                    (center_x, center_y) = (W - (at_plant) * x - 77, H - (row_num - 1) * y - 110)
+                    if pass_num == 1:
+                        (center_x, center_y) = (W - (at_plant) * x - 77, H - (row_num - 1) * y - 110)
+                    elif pass_num == 2:
+                        (center_x, center_y) = (W - (6 - at_plant) * x - 77, H - (row_num - 1) * y - 110)
                 elif pass_num == 2: # unaligned post-turn
                     (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110) 
                 elif row_num >= 1: # unaligned post-jump
