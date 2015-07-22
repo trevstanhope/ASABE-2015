@@ -26,6 +26,7 @@ pygtk.require('2.0')
 import gtk
 import matplotlib.pyplot as mpl
 import time
+from random import randint
 
 # Configuration
 try:
@@ -134,7 +135,7 @@ class Server:
         self.at_plant = 0
         self.at_end = 0
         self.start_time = time.time()
-        self.end_time = self.start_time + 5 * 60
+        self.end_time = self.start_time + self.RUN_TIME
         self.clock = self.end_time - self.start_time
         self.observed_plants = [] #TODO can add dummy vals here
         self.collected_plants = {
@@ -182,25 +183,30 @@ class Server:
         self.at_end = request['at_end']
         self.pass_num = request['pass_num']
         self.at_plant = request['at_plant']
+        ## If paused
         if self.running == False:
-            action = 'wait'       
-        elif (self.row_num < self.NUM_ROWS) and (self.plant_num < self.NUM_PLANTS):
+            action = 'wait'
+        ## If clock running out
+        elif self.clock <= self.GIVE_UP_TIME: # if too little time
+            action = 'finish'
+        ## If searching for plants 
+        elif (self.row_num < self.NUM_ROWS) or (self.plant_num < self.NUM_PLANTS):
             if self.row_num == 0:
-                action = 'begin'
-            if request['last_action'] == 'begin':
-                action = 'align'
+                action = 'begin' # begin if first action
                 self.row_num = 1
-            if request['last_action'] == 'align':
-                action = 'seek'
-            if request['last_action'] == 'seek':
+            elif request['last_action'] == 'begin':
+                action = 'align' # align if jumped to beginning
+            elif request['last_action'] == 'align':
+                if True:
+                    action = 'seek' # seek to end/plant if aligned at end of row to search
+                else: 
+                    action = 'end' # seek blindly if aligned at end of doubled row
+            elif request['last_action'] == 'seek':
                 if request['at_end'] == 2:
-                    action = 'turn'
+                    action = 'turn' # turn if at far end
                 if request['at_end'] == 1:
-                    if self.clock <= self.GIVE_UP_TIME:
-                        action = 'finish'
-                    else:
-                        action = 'jump'
-                        self.row_num = self.row_num + 1
+                    action = 'jump' # jump if at near end
+                    self.row_num = self.row_num + 1
                 elif request['at_plant'] != 0:
                     bgr = np.array(request['bgr'], np.uint8)
                     (color, height, bgr) = self.identify_plant(bgr)
@@ -211,22 +217,32 @@ class Server:
                     elif self.pass_num == 2:
                         row = self.row_num + 1
                         plant = 6 - self.at_plant # run plants backward
-                    self.observed_plants.append((row, plant, color, height))
-                    self.plant_num += 1
+                    s = self.add_plant(row, plant, color, height)
+                    if s: self.plant_num += 1
                     if self.collected_plants[color][height] == True: # check if plant type has been seen yet
                         action = 'seek'
                     else:
                         self.collected_plants[color][height] = True # if not, set to true and grab
                         action = 'grab'
                         self.samples_num += 1
-            if request['last_action'] == 'turn':
+            elif request['last_action'] == 'turn':
                 action = 'align'
-            if request['last_action'] == 'grab':
+            elif request['last_action'] == 'grab':
                 action = 'seek'
-            if request['last_action'] == 'jump':
+            elif request['last_action'] == 'jump':
                 action = 'align'
+            else:
+                action = 'wait'
+        ## If at last row or reached 20 plants
         else:
-            action = 'finish'
+            if (request['last_action'] == 'seek') and (self.at_end != 1) and (self.pass_num == 2):
+                action = 'end' # if part-way along final row (i.e. not at end #1)
+            elif (request['last_action'] == 'seek') and (self.at_end == 1) and (self.pass_num == 2):
+                action = 'finish' # if part-way along final row (i.e. not at end #1)
+            elif request['last_action'] == 'end':
+                action = 'finish' # if at end of final row
+            else:
+                action = 'finish' # if last plant was row 4, plant 5 (i.e. 20 plants in 20 positions)
         return action
     def identify_plant(self, bgr):
         """
@@ -236,57 +252,71 @@ class Server:
             is_new : true/false
         """
         if self.VERBOSE: self.pretty_print("CV2", "Identifying plant phenotype ...")
-        detected_areas = [(0,0,0,0,0)] * 3
-        bgr = cv2.medianBlur(bgr, 5)
-        hsv = cv2.cvtColor(bgr,cv2.COLOR_BGR2HSV)
-        greenlow = np.array([30,30,0]) 
-        greenhigh = np.array([100,255,255])
-        yellowlow = np.array([0,128,0])
-        yellowhigh = np.array([45, 255, 255])
-        brownlow = np.array([0,0,0])
-        brownhigh = np.array([20,255,102])
-        brownlow1 = np.array([150,0,0])
-        brownhigh1 = np.array([180,255,102])
-        green_mask = cv2.inRange(hsv, greenlow, greenhigh)
-        yellow_mask = cv2.inRange(hsv, yellowlow, yellowhigh)
-        brown_mask1 = cv2.inRange(hsv, brownlow, brownhigh)
-        brown_mask2 = cv2.inRange(hsv, brownlow1, brownhigh1)
-        brown_mask = brown_mask1 + brown_mask2
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-        masks = [green_mask, yellow_mask, brown_mask]
-        for i in range(len(masks)):
-            m = masks[i]
-            opening = cv2.morphologyEx(m, cv2.MORPH_OPEN, kernel)
-            closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
-            ret,thresh = cv2.threshold(closing,127,255,0)
-            contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-            areas = [cv2.contourArea(c) for c in contours]
-            max_index = np.argmax(areas) # Find the index of the largest contour
-            cnt = contours[max_index]
-            x,y,w,h = cv2.boundingRect(cnt)
-            detected_areas[i] = (x, y, w, h)
-        areas = [w*h for (x, y, w, h) in detected_areas]
-        max_area = max(areas)
-        i = np.argmax(areas)
-        (x, y, w, h) = detected_areas[i]
-        if i == 0:
-            c = (0,255,0)
-            color = 'green'
-        elif i == 1:
-            c = (0,255,255)
-            color = 'yellow'
-        elif i == 2:
-            c = (0,87,115)
-            color = 'brown'
-        else:
-            exit(1)
-        if h > self.CAMERA_TALL_THRESHOLD:
-            height = 'tall'
-        else:
-            height = 'short'
-        cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
+        try:
+            detected_areas = [(0,0,0,0,0)] * 3
+            bgr = cv2.medianBlur(bgr, 5)
+            hsv = cv2.cvtColor(bgr,cv2.COLOR_BGR2HSV)
+            greenlow = np.array([30,30,0]) 
+            greenhigh = np.array([100,255,255])
+            yellowlow = np.array([0,128,0])
+            yellowhigh = np.array([45, 255, 255])
+            brownlow = np.array([0,0,0])
+            brownhigh = np.array([20,255,102])
+            brownlow1 = np.array([150,0,0])
+            brownhigh1 = np.array([180,255,102])
+            green_mask = cv2.inRange(hsv, greenlow, greenhigh)
+            yellow_mask = cv2.inRange(hsv, yellowlow, yellowhigh)
+            brown_mask1 = cv2.inRange(hsv, brownlow, brownhigh)
+            brown_mask2 = cv2.inRange(hsv, brownlow1, brownhigh1)
+            brown_mask = brown_mask1 + brown_mask2
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+            masks = [green_mask, yellow_mask, brown_mask]
+            for i in range(len(masks)):
+                m = masks[i]
+                opening = cv2.morphologyEx(m, cv2.MORPH_OPEN, kernel)
+                closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
+                ret,thresh = cv2.threshold(closing,127,255,0)
+                contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+                areas = [cv2.contourArea(c) for c in contours]
+                max_index = np.argmax(areas) # Find the index of the largest contour
+                cnt = contours[max_index]
+                x,y,w,h = cv2.boundingRect(cnt)
+                detected_areas[i] = (x, y, w, h)
+            areas = [w*h for (x, y, w, h) in detected_areas]
+            max_area = max(areas)
+            i = np.argmax(areas)
+            (x, y, w, h) = detected_areas[i]
+            if i == 0:
+                c = (0,255,0)
+                color = 'green'
+            elif i == 1:
+                c = (0,255,255)
+                color = 'yellow'
+            elif i == 2:
+                c = (0,87,115)
+                color = 'brown'
+            else:
+                exit(1)
+            if h > self.CAMERA_TALL_THRESHOLD:
+                height = 'tall'
+            else:
+                height = 'short'
+            cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
+        except:
+            colors = ['green', 'yellow', 'brown']
+            heights = ['tall', 'short']
+            i = randint(0,2)
+            j = randint(0,1)
+            color = colors[i]
+            height = heights[j]
         return color, height, bgr
-        
+    def add_plant(self, row, plant, color, height):
+        for p in self.observed_plants:
+            if p == (row, plant, color, height):
+                return False
+        self.observed_plants.append((row, plant, color, height))
+        return True
+ 
     ## CherryPy Functions
     def __init_tasks__(self):
         if self.VERBOSE: self.pretty_print('CHERRYPY', 'Initializing Monitors')
