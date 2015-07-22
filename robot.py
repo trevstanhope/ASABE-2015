@@ -16,6 +16,7 @@ import numpy as np
 from datetime import datetime
 from serial import Serial, SerialException
 import cv2, cv
+import thread
 
 # Constants
 try:
@@ -86,12 +87,14 @@ class Robot:
     def init_cam(self):
         if self.VERBOSE: self.pretty_print("CTRL", "Initializing Cameras ...")
         try:
+            self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
             self.camera = cv2.VideoCapture(self.CAMERA_INDEX)
             self.camera.set(cv.CV_CAP_PROP_FRAME_WIDTH, self.CAMERA_WIDTH)
             self.camera.set(cv.CV_CAP_PROP_FRAME_HEIGHT, self.CAMERA_HEIGHT)
             self.camera.set(cv.CV_CAP_PROP_SATURATION, self.CAMERA_SATURATION)
             self.camera.set(cv.CV_CAP_PROP_CONTRAST, self.CAMERA_CONTRAST)
             self.camera.set(cv.CV_CAP_PROP_BRIGHTNESS, self.CAMERA_BRIGHTNESS)
+            thread.start_new_thread(self.capture_image, ())
         except Exception as e:
             self.pretty_print('CAM', 'Error: %s' % str(e))
             raise e
@@ -102,12 +105,12 @@ class Robot:
         for i in range(self.CAMERA_FLUSH):
             (s, bgr) = self.camera.read()
         if s:
-            return bgr
+            self.bgr = bgr
         else:
-            return np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
+            self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
     
     ## Send request to server
-    def request_action(self, bgr, status):
+    def request_action(self, status):
         if self.VERBOSE: self.pretty_print('ZMQ', 'Pushing request to server ...')
         try:
             last_action = [key for key, value in self.ACTIONS.iteritems() if value == status['command']][0]
@@ -118,7 +121,7 @@ class Robot:
                 'at_end' : status['at_end'],
                 'at_plant' : status['at_plant'],
                 'pass_num' : status['pass_num'],
-                'bgr' : bgr.tolist()
+                'bgr' : self.bgr.tolist()
             }
             dump = json.dumps(request)
             self.socket.send(dump)
@@ -177,10 +180,9 @@ class Robot:
             'command' : '?',
             'result' : 255
         }
-        bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
         while True:
             try:
-                action = self.request_action(bgr, status)
+                action = self.request_action(status)
                 if action:
                     status = self.execute_command(action) #!TODO handle different responses
                     bgr = self.capture_image()
