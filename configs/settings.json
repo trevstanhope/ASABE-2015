@@ -28,7 +28,6 @@
     "CAMERA_SATURATION" : 1.0,
     "CAMERA_BRIGHTNESS" : 0.5,
     "CAMERA_CONTRAST" : 0.5,
-    "CAMERA_FLUSH" : 10,
     "CAMERA_TALL_THRESHOLD" : 220,
     "GUI_BOARD_IMAGE" : "static/board.jpg",
     "GUI_CAMERA_IMAGE" : "static/camera.jpg",

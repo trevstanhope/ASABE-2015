@@ -102,12 +102,13 @@ class Robot:
     ## Capture image
     def capture_image(self):
         if self.VERBOSE: self.pretty_print("CTRL", "Capturing image ...")
-        for i in range(self.CAMERA_FLUSH):
+        while True:
+            time.sleep(0.05)
             (s, bgr) = self.camera.read()
-        if s:
-            self.bgr = bgr
-        else:
-            self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
+            if s:
+                self.bgr = bgr
+            else:
+                self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
     
     ## Send request to server
     def request_action(self, status):
@@ -185,7 +186,6 @@ class Robot:
                 action = self.request_action(status)
                 if action:
                     status = self.execute_command(action) #!TODO handle different responses
-                    bgr = self.capture_image()
             except Exception as e:
                 self.pretty_print('RUN', 'Error: %s' % str(e))
                 self.close()
