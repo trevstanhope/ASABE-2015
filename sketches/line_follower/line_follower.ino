@@ -5,9 +5,9 @@
 /* --- Constants --- */
 const int LINE_THRESHOLD = 700;
 const int BAUD = 9600;
-const int LEFT_LINE_PIN = A2;
-const int RIGHT_LINE_PIN = A1;
-const int CENTER_LINE_PIN = A0;
+const int LEFT_LINE_PIN = A0;
+const int RIGHT_LINE_PIN = A2;
+const int CENTER_LINE_PIN = A1;
 
 const int FRONT_LEFT_SERVO = 0;
 const int FRONT_RIGHT_SERVO = 1;

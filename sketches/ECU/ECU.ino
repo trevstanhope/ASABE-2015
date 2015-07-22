@@ -32,9 +32,9 @@ const int DISTANCE_THRESHOLD = 40; // cm
 const int ACTIONS_PER_PLANT = 50;
 
 /* --- I/O Pins --- */
-const int CENTER_LINE_PIN = A0;
-const int LEFT_LINE_PIN = A1;
+const int LEFT_LINE_PIN = A0;
 const int RIGHT_LINE_PIN = A2;
+const int CENTER_LINE_PIN = A1;
 const int DIST_SENSOR_PIN = 7;
 // A4 - A5 reserved
 
