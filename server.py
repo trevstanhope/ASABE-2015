@@ -127,7 +127,6 @@ class Server:
     def __init_statemachine__(self):
         self.bgr = cv2.imread(self.GUI_CAMERA_IMAGE)
         self.running = False
-        self.num_actions = 0
         self.row_num = 0
         self.plant_num = 0
         self.pass_num = 0
@@ -186,7 +185,7 @@ class Server:
         if self.running == False:
             action = 'wait'       
         elif (self.row_num < self.NUM_ROWS) and (self.plant_num < self.NUM_PLANTS):
-            if self.num_actions == 0:
+            if self.row_num == 0:
                 action = 'begin'
             if request['last_action'] == 'begin':
                 action = 'align'
@@ -197,10 +196,21 @@ class Server:
                 if request['at_end'] == 2:
                     action = 'turn'
                 if request['at_end'] == 1:
-                    action = 'jump'
+                    if self.clock <= self.GIVE_UP_TIME:
+                        action = 'finish'
+                    else:
+                        action = 'jump'
+                        self.row_num = self.row_num + 1
                 elif request['at_plant'] != 0:
-                    (color, height, bgr) = self.identify_plant(request['img'])
+                    bgr = np.array(request['bgr'], np.uint8)
+                    (color, height, bgr) = self.identify_plant(bgr)
                     self.bgr = bgr
+                    if self.pass_num == 1:
+                        row = self.row_num
+                        plant = self.at_plant
+                    elif self.pass_num == 2:
+                        row = self.row_num + 1
+                        plant = 6 - self.at_plant # run plants backward
                     self.observed_plants.append((row, plant, color, height))
                     if self.collected_plants[color][height] == True: # check if plant type has been seen yet
                         action = 'seek'
@@ -213,8 +223,6 @@ class Server:
                 action = 'seek'
             if request['last_action'] == 'jump':
                 action = 'align'
-                self.row_num = self.row_num + 1
-            self.num_actions = self.num_actions + 1
         else:
             action = 'finish'
         return action
@@ -461,7 +469,7 @@ class GUI(object):
                     (center_x, center_y) = (W - 55, H - 55) ## 55, 55 is best
                 elif at_plant != 0:  # if at plant
                     (center_x, center_y) = (W - (at_plant) * x - 77, H - (row_num - 1) * y - 110)
-                elif pass_num == -1: # unaligned post-turn
+                elif pass_num == 2: # unaligned post-turn
                     (center_x, center_y) = (W - 470, H - (row_num - 1) * y - 110) 
                 elif row_num >= 1: # unaligned post-jump
                     (center_x, center_y) = (W - 130, H - (row_num - 1) * y - 110) 

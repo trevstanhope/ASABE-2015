@@ -28,6 +28,7 @@ const int UNKNOWN_COMMAND = '?';
 /* --- Constants --- */
 const int LINE_THRESHOLD = 500; // i.e. 2.5 volts
 const int DISTANCE_THRESHOLD = 40; // cm
+const int ACTIONS_PER_PLANT = 50;
 
 /* --- I/O Pins --- */
 const int CENTER_LINE_PIN = A0;
@@ -93,7 +94,9 @@ void loop() {
       command = BEGIN_COMMAND;
       result = begin_run();
       if (result == 0) { 
-        pass_num = 1; 
+        pass_num = 1;
+        at_end = 0;
+        at_plant = 0; 
       }
       break;
     case ALIGN_COMMAND:
@@ -102,22 +105,24 @@ void loop() {
       if (pass_num == 1) {
         at_end = 1;
       }
-      else if (pass_num == -1) {
+      else if (pass_num == 2) {
         at_end = 2;
       }
       break;
     case SEEK_COMMAND:
       command = SEEK_COMMAND;
       result = seek_plant();
-      if (result == 1) {
-        at_plant = 1;
+      if (result != 0) {
+        at_end = 0;
+        at_plant = at_plant + result / ACTIONS_PER_PLANT;
+        if (at_plant > 5) { at_plant = 5; }
       }
       else {
         at_plant = 0;
         if (pass_num == 1) {
           at_end = 2;
         }
-        else if (pass_num == -1) {
+        else if (pass_num == 2) {
           at_end = 1;
         }
       }
@@ -131,8 +136,9 @@ void loop() {
       result = turn();
       if (result == 0) {
         at_end = 0;
+        at_plant = 0;
         if (pass_num == 1) {
-          pass_num = -1;
+          pass_num = 2;
         }
       }
       break;
@@ -141,6 +147,7 @@ void loop() {
       result = jump();
       if (result == 0) {
         at_end = 0;
+        at_plant = 0;
         pass_num = 1;
       }
       break;
@@ -215,7 +222,7 @@ int align(void) {
    
    1. Wiggle onto line
    2. Reverse to end of line  
-   */
+  */
 
   // Wiggle onto line
   int x = find_offset(LINE_THRESHOLD);
@@ -281,17 +288,16 @@ int align(void) {
 }
 
 int seek_plant(void) {
-  at_plant = 0;
-  at_end = 0; // reset at_end global to zero (no longer will be at end once seek is executed)
+  
+  // Prepare for movement
   int x = find_offset(LINE_THRESHOLD);
+  int actions = ACTIONS_PER_PLANT;
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN); // Retract arm fully
   delay(GRAB_INTERVAL);
-  set_servos(20, -20, 20, -20);
-  delay(500);
-  
+
   // Move past plant
   int i = 0;
-  while (i < 50)  {
+  while (i < actions)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
       set_servos(20, -10, 20, -10);
@@ -307,6 +313,9 @@ int seek_plant(void) {
     }
     else if (x == 0) {
       set_servos(15, -15, 15, -15);
+    }
+    else if (x == 255) {
+      return 0; // at end
     }
     delay(50);
     i++;
@@ -335,10 +344,15 @@ int seek_plant(void) {
       while (find_distance() <= d) {
         delay(50);
         d = find_distance();
+        if (d > DISTANCE_THRESHOLD) {
+          break;
+        }
       }
       set_servos(0,0,0,0);
-      return 1;
+      return actions;
     }
+    delay(50);
+    actions++;
   }
   set_servos(0, 0, 0, 0); // Stop servos
   return 0;
@@ -375,7 +389,7 @@ int grab(void) {
   delay(TAP_INTERVAL);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   delay(TAP_INTERVAL);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX  - 100 );
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX  - 100);
   delay(TAP_INTERVAL);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   delay(TAP_INTERVAL);
