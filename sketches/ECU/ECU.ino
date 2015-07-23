@@ -201,7 +201,7 @@ int begin_run(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
 
   // Get past black square
-  set_servos(5, -30, 5, -30); // Wide left sweep
+  set_servos(4, -35, 4, -35); // Wide left sweep
   delay(3000);
 
   // Run until line reached
@@ -272,11 +272,12 @@ int align(void) {
       i = 0;
     }
     else if (x == -255) {
-      break;
+      set_servos(-15, 15, -15, 15);
+      i++;
     }
     else if (x == 255) {
       set_servos(15, -15, 15, -15);
-      i = 0;
+      i++;
     }
     delay(50);
   }
@@ -304,6 +305,11 @@ int align(void) {
       set_servos(0, 0, 0, 0); // Halt 
       return 1;
     }
+  }
+  
+  // Pull forward onto line
+  while (abs(find_offset(LINE_THRESHOLD)) > 2) {
+    set_servos(10, -10, 10, -10);
   }
   set_servos(0, 0, 0, 0); // Halt 
   return 0;
@@ -364,6 +370,9 @@ int seek_plant(void) {
     else if (x == 0) {
       set_servos(15, -15, 15, -15);
     }
+    else if (x == -255) {
+      set_servos(15, -10, 15, -10);
+    }
     if (find_distance() < DISTANCE_THRESHOLD) {
       set_servos(0,0,0,0);
       return actions;
@@ -407,8 +416,8 @@ int seek_end(void) {
 }
 
 int jump(void) {
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
-  set_servos(10, -40, 10, -40); // Wide left sweep
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
+  set_servos(10, -50, 7, -40); // Wide left sweep
   delay(3000);
   // Run until line reached
   while (abs(find_offset(LINE_THRESHOLD)) > 2) {
@@ -422,10 +431,10 @@ int turn(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   set_servos(20, -20, 20, -20);
   delay(HALFSTEP_INTERVAL);
-  set_servos(30, 30, 30, 30);
+  set_servos(20, 30, 20, 30);
   delay(TURN45_INTERVAL);
   while (abs(find_offset(LINE_THRESHOLD)) > 1) {
-    set_servos(40, 40, 40, 40);
+    set_servos(20, 30, 20, 30);
   }
   set_servos(0, 0, 0, 0);
   return 0;
@@ -498,6 +507,7 @@ int find_offset(int threshold) {
   else {
     x = 0;
   }
+  Serial.println(x);
   return x;
 }
 
