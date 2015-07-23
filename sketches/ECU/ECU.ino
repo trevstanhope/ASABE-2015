@@ -507,7 +507,7 @@ int find_offset(int threshold) {
   else {
     x = 0;
   }
-  Serial.println(x);
+  // Serial.println(x);
   return x;
 }
 
@@ -529,7 +529,7 @@ int find_distance(void) {
   d = duration / 29 / 2; // inches
   dist.add(d);
   int val = dist.getMedian();
-  Serial.println(val);
+  // Serial.println(val);
   return val;
 }
 
