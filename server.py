@@ -164,7 +164,7 @@ class Server:
                 (at_end, at_plant, img) = seek
                 if at_plant: 
                     (color, height, is_new) = identify_plant()
-                    if//************** is_new: 
+                    if is_new: 
                         grab()
             turn()
             align()
@@ -184,9 +184,16 @@ class Server:
         self.at_end = request['at_end']
         self.pass_num = request['pass_num']
         self.at_plant = request['at_plant']
+        self.pretty_print("DECIDE", "At End: %d" % self.at_end)
+        self.pretty_print("DECIDE", "At Plant: %d" % self.at_plant)
+        self.pretty_print("DECIDE", "Pass Num: %d" % self.pass_num)
+        self.bgr = np.array(request['bgr'], np.uint8)
         ## If paused
         if self.running == False:
-            action = 'wait'
+            if request['last_action'] == 'clear':
+                action = 'wait'
+            else:
+                action = 'clear'
         ## If clock running out
         elif self.clock <= self.GIVE_UP_TIME: # if too little time
             action = 'finish'
@@ -209,11 +216,10 @@ class Server:
                     action = 'jump' # jump if at near end
                     self.row_num = self.row_num + 1
                 elif request['at_plant'] != 0:
-                    bgr = np.array(request['bgr'], np.uint8)
-                    (color, height, bgr) = self.identify_plant(bgr)
+                    (color, height, bgr2) = self.identify_plant(bgr)
                     self.pretty_print('DECIDE', 'Color: %s' % color)
                     self.pretty_print('DECIDE', 'Height: %s' % height)
-                    self.bgr = bgr
+                    self.bgr = bgr2
                     if self.pass_num == 1:
                         row = self.row_num
                         plant = self.at_plant
@@ -305,7 +311,8 @@ class Server:
             else:
                 height = 'short'
             cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
-        except:
+        except Exception as e:
+            self.pretty_print("CV", "Error: %s" % str(e))
             colors = ['green', 'yellow', 'brown']
             heights = ['tall', 'short']
             i = randint(0,2)

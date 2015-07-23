@@ -2,13 +2,13 @@ import cv2, cv
 import numpy as np
 import sys
 
-FRAME_WIDTH = 320
-FRAME_HEIGHT = 240
+FRAME_WIDTH = 160
+FRAME_HEIGHT = 120
 SATURATION = 1.0
 BRIGHTNESS = 0.5
 CONTRAST = 0.5
 NUM_FLUSH = 30
-TALL_THRESHOLD = 220 # pixels
+TALL_THRESHOLD = 110 # pixels
 try:
     FILENAME = sys.argv[1]
     bgr=cv2.imread(FILENAME)

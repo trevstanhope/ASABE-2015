@@ -49,6 +49,7 @@
         "finish" : "F",
         "wait" : "W",
         "repeat" : "R",
-        "unknown" : "?"
+        "unknown" : "?",
+        "clear" : "C"
     }
 }

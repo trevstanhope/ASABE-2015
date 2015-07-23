@@ -26,14 +26,16 @@ const int JUMP_COMMAND  = 'J';
 const int FINISH_COMMAND  = 'F';
 const int WAIT_COMMAND = 'W';
 const int REPEAT_COMMAND = 'R';
+const int CLEAR_COMMAND = 'C';
 const int UNKNOWN_COMMAND = '?';
 
 /* --- Constants --- */
-const int LINE_THRESHOLD = 500; // i.e. 2.5 volts
-const int DISTANCE_THRESHOLD = 38; // cm
-const int FAR_THRESHOLD = 60; // cm
-const int ACTIONS_PER_PLANT = 200;
-const int DISTANCE_SAMPLES = 10;
+const int LINE_THRESHOLD = 150; // i.e. 2.5 volts
+const int DISTANCE_THRESHOLD = 37; // cm
+const int FAR_THRESHOLD = 40; // cm
+const int ACTIONS_PER_PLANT = 50;
+const int DISTANCE_SAMPLES = 15;
+const int OFFSET_SAMPLES = 1;
 
 /* --- I/O Pins --- */
 const int LEFT_LINE_PIN = A0;
@@ -66,11 +68,11 @@ const int BL = -2;
 /* --- Variables --- */
 char command;
 int result;
-int offset = 0;
 int at_plant = 0; // 0: not at plant, 1-5: plant number
 int at_end = 0; // 0: not at end, 1: 1st end of row, 2: 2nd end of row
 int pass_num = 0; // 0: not specified, 1: right-to-left, 2: left-to-rightd
 RunningMedian dist = RunningMedian(DISTANCE_SAMPLES);
+RunningMedian offset = RunningMedian(OFFSET_SAMPLES);
 
 /* --- Buffers --- */
 char output[OUTPUT_LENGTH];
@@ -182,13 +184,19 @@ void loop() {
       command = WAIT_COMMAND;
       result = wait();
       break;
+    case CLEAR_COMMAND:
+      at_end = 0;
+      at_plant = 0;
+      pass_num = 0;
+      command = CLEAR_COMMAND;
+      result = wait();
+      break;
     default:
       result = 255;
       command = UNKNOWN_COMMAND;
       break;
     }
-    offset = find_offset(LINE_THRESHOLD);
-    sprintf(output, "{'command':'%c','result':%d,'at_plant':%d,'at_end':%d,'pass_num':%d,'line':%d,'dist':%d}", command, result, at_plant, at_end, pass_num, offset, int(dist.getMedian()));
+    sprintf(output, "{'command':'%c','result':%d,'at_plant':%d,'at_end':%d,'pass_num':%d,'line':%d,'dist':%d}", command, result, at_plant, at_end, pass_num, int(offset.getMedian()), int(dist.getMedian()));
     Serial.println(output);
     Serial.flush();
   }
@@ -273,11 +281,11 @@ int align(void) {
     }
     else if (x == -255) {
       set_servos(-15, 15, -15, 15);
-      i++;
+      i = 0;
     }
     else if (x == 255) {
       set_servos(15, -15, 15, -15);
-      i++;
+      i = 0;
     }
     delay(50);
   }
@@ -308,7 +316,8 @@ int align(void) {
   }
   
   // Pull forward onto line
-  while (abs(find_offset(LINE_THRESHOLD)) > 2) {
+  int j = 0;
+  while (abs(find_offset(LINE_THRESHOLD)) > 1) {
     set_servos(10, -10, 10, -10);
   }
   set_servos(0, 0, 0, 0); // Halt 
@@ -352,7 +361,7 @@ int seek_plant(void) {
     delay(50);
   }
 
-  // Search until next plant
+  // Search until next plant or end
   while (x != 255)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
@@ -371,7 +380,7 @@ int seek_plant(void) {
       set_servos(15, -15, 15, -15);
     }
     else if (x == -255) {
-      set_servos(15, -10, 15, -10);
+      set_servos(10, -10, 10, -10);
     }
     if (find_distance() < DISTANCE_THRESHOLD) {
       set_servos(0,0,0,0);
@@ -419,9 +428,8 @@ int jump(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   set_servos(10, -50, 7, -40); // Wide left sweep
   delay(3000);
-  // Run until line reached
   while (abs(find_offset(LINE_THRESHOLD)) > 2) {
-    delay(20);
+    delay(20); // Run until line reached
   }
   set_servos(0,0,0,0);
   return 0;
@@ -507,8 +515,10 @@ int find_offset(int threshold) {
   else {
     x = 0;
   }
-  // Serial.println(x);
-  return x;
+  offset.add(x);
+  int val = offset.getMedian();
+  // Serial.println(val);
+  return val;
 }
 
 int find_distance(void) {
