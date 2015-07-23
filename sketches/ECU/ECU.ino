@@ -122,7 +122,7 @@ void loop() {
       result = seek_plant();
       if (result != 0) {
         at_end = 0;
-        at_plant = at_plant + result / ACTIONS_PER_PLANT;
+        at_plant = at_plant + result;
         if (at_plant > 5) { 
           at_plant = 5; 
         }
@@ -217,26 +217,14 @@ int begin_run(void) {
     delay(20);
   }
 
-  // Find Row
-  int i = 0;
-  int dir = 1;
-  while (find_offset(LINE_THRESHOLD) != 0) {
-    if ((find_offset(LINE_THRESHOLD) == -255) && (dir = 1)) {
-      set_servos(10, -20, 10, -20); // L-curve search
-    }
-    if ((find_offset(LINE_THRESHOLD) == -255) && (dir = -1)) {
-      set_servos(20, -10, 20, -10); // R-curve search
-    }
-    if (i > 20) {
-      i = 0;
-      if (dir == 1) {
-        dir = -1;
-      }
-      else if (dir == -1) {
-        dir = 1;
-      }
-    }
-    i++;
+  // Pull forward
+  set_servos(10, -20, 10, -20);
+  delay(1000);
+  
+  // Rotate towards the line
+  set_servos(-20, -20, -20, -20);
+  while (abs(find_offset(LINE_THRESHOLD)) > 1) {
+    delay(20); // Run until line reached
   }
 
   // Halt
@@ -257,7 +245,7 @@ int align(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   int x = find_offset(LINE_THRESHOLD);
   int i = 0;
-  while (i <= 15) {
+  while (i <= 20) {
     x = find_offset(LINE_THRESHOLD);
     if (x == 0) {
       set_servos(10, -10, 10, -10);
@@ -311,7 +299,7 @@ int align(void) {
     }
     else if (x == -255) {
       set_servos(0, 0, 0, 0); // Halt 
-      return 1;
+      break;
     }
   }
   
@@ -319,6 +307,7 @@ int align(void) {
   int j = 0;
   while (abs(find_offset(LINE_THRESHOLD)) > 1) {
     set_servos(10, -10, 10, -10);
+    find_distance();
   }
   set_servos(0, 0, 0, 0); // Halt 
   return 0;
@@ -332,7 +321,15 @@ int seek_plant(void) {
   int x = find_offset(LINE_THRESHOLD);
   int d = find_distance();
   int actions = 0;
-
+  
+  // Move past end
+  if (x == 255) {
+    while (x == 255) {
+      x = find_offset(LINE_THRESHOLD);
+      set_servos(20, -20, 20, -20);
+    }
+  }
+  
   // Move past plant
   while (d < FAR_THRESHOLD)  {
     d = find_distance();
@@ -362,7 +359,8 @@ int seek_plant(void) {
   }
 
   // Search until next plant or end
-  while (x != 255)  {
+  int j = 0;
+  while (j < 2)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
       set_servos(20, -10, 20, -10);
@@ -382,9 +380,17 @@ int seek_plant(void) {
     else if (x == -255) {
       set_servos(10, -10, 10, -10);
     }
-    if (find_distance() < DISTANCE_THRESHOLD) {
+    else if (x == 255) {
+      set_servos(10, -10, 10, -10);
+      j++;
+    }
+    if ((find_distance() < DISTANCE_THRESHOLD) && (at_plant < 5)) {
       set_servos(0,0,0,0);
-      return actions;
+      int result = actions / ACTIONS_PER_PLANT;
+      if (result == 0) {
+        result = 1;
+      }
+      return result;
     }
     delay(50);
     actions++;
@@ -401,6 +407,12 @@ int seek_end(void) {
   delay(GRAB_INTERVAL);
 
   // Search until end
+  if (x == 255) {
+    while (x == 255) {
+      x = find_offset(LINE_THRESHOLD);
+      set_servos(20, -20, 20, -20);
+    }
+  }
   while (x != 255)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
@@ -426,9 +438,19 @@ int seek_end(void) {
 
 int jump(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
-  set_servos(10, -50, 7, -40); // Wide left sweep
+  set_servos(10, -45, 10, -45); // Wide left sweep
   delay(3000);
   while (abs(find_offset(LINE_THRESHOLD)) > 2) {
+    delay(20); // Run until line reached
+  }
+  
+  // Pull forward
+  set_servos(20, -20, 20, -20);
+  delay(1000);
+  
+  // Rotate towards the line
+  set_servos(-20, -20, -20, -20);
+  while (abs(find_offset(LINE_THRESHOLD)) > 1) {
     delay(20); // Run until line reached
   }
   set_servos(0,0,0,0);

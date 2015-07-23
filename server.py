@@ -205,18 +205,18 @@ class Server:
             elif request['last_action'] == 'begin':
                 action = 'align' # align if jumped to beginning
             elif request['last_action'] == 'align':
-                if True:
-                    action = 'seek' # seek to end/plant if aligned at end of row to search
+                if (self.row_num in [1,2,3]) and (self.pass_num == 2):
+                    action = 'end' # seek to end/plant if aligned at end of row to search
                 else: 
-                    action = 'end' # seek blindly if aligned at end of doubled row
-            elif request['last_action'] == 'seek':
+                    action = 'seek' # seek blindly if aligned at end of doubled row
+            elif request['last_action'] == 'seek' or request['last_action'] == 'end':
                 if request['at_end'] == 2:
                     action = 'turn' # turn if at far end
-                if request['at_end'] == 1:
+                elif request['at_end'] == 1:
                     action = 'jump' # jump if at near end
                     self.row_num = self.row_num + 1
                 elif request['at_plant'] != 0:
-                    (color, height, bgr2) = self.identify_plant(bgr)
+                    (color, height, bgr2) = self.identify_plant(request['bgr'])
                     self.pretty_print('DECIDE', 'Color: %s' % color)
                     self.pretty_print('DECIDE', 'Height: %s' % height)
                     self.bgr = bgr2
@@ -234,6 +234,8 @@ class Server:
                         self.collected_plants[color][height] = True # if not, set to true and grab
                         action = 'grab'
                         self.samples_num += 1
+                else:
+                    action = 'seek'
             elif request['last_action'] == 'turn':
                 action = 'align'
             elif request['last_action'] == 'grab':
