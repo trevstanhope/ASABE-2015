@@ -2,12 +2,13 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <RunningMedian.h>
+#include <math.h>
 
 /* --- Time Constants --- */
 const int WAIT_INTERVAL = 100;
 const int BEGIN_INTERVAL = 2000;
 const int TURN45_INTERVAL = 1000;
-const int TURN90_INTERVAL = 3000;
+const int TURN90_INTERVAL = 2800;
 const int GRAB_INTERVAL = 1000;
 const int TAP_INTERVAL = 500;
 const int STEP_INTERVAL = 2200; // interval to move fully into finishing square
@@ -33,7 +34,7 @@ const int UNKNOWN_COMMAND = '?';
 const int LINE_THRESHOLD = 150; // i.e. 2.5 volts
 const int DISTANCE_THRESHOLD = 37; // cm
 const int FAR_THRESHOLD = 40; // cm
-const int ACTIONS_PER_PLANT = 50;
+const int ACTIONS_PER_PLANT = 350;
 const int DISTANCE_SAMPLES = 15;
 const int OFFSET_SAMPLES = 1;
 
@@ -359,41 +360,67 @@ int seek_plant(void) {
   }
 
   // Search until next plant or end
-  int j = 0;
-  while (j < 2)  {
+  while (true) {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
       set_servos(20, -10, 20, -10);
+      actions++;
     }
     else if (x == -2) {
       set_servos(20, 20, 20, 20);
     }
     else if (x == 1) {
       set_servos(10, -20, 10, -20);
+      actions++;
     }
     else if (x == 2) {
       set_servos(-20, -20, -20, -20);
     }
     else if (x == 0) {
       set_servos(15, -15, 15, -15);
+      actions++;
     }
     else if (x == -255) {
       set_servos(10, -10, 10, -10);
     }
     else if (x == 255) {
       set_servos(10, -10, 10, -10);
-      j++;
+      delay(500);
+      x = find_offset(LINE_THRESHOLD);
+      if (x == -255) {
+        set_servos(-10, 10, -10, 10);
+        delay(500);
+        break;
+      }
     }
     if ((find_distance() < DISTANCE_THRESHOLD) && (at_plant < 5)) {
-      set_servos(0,0,0,0);
-      int result = actions / ACTIONS_PER_PLANT;
+      for (int k = 0; k<15; k++) { 
+        x = find_offset(LINE_THRESHOLD);
+        if (x == -1) {
+          set_servos(20, -10, 20, -10);
+        }
+        else if (x == -2) {
+          set_servos(15, 15, 15, 15);
+        }
+        else if (x == 1) {
+          set_servos(10, -20, 10, -20);
+        }
+        else if (x == 2) {
+          set_servos(-15, -15, -15, -15);
+        }
+        else if (x == 0) {
+          set_servos(15, -15, 15, -15);
+        }
+        delay(50);
+      }
+      int result = round(actions / float(ACTIONS_PER_PLANT));
       if (result == 0) {
         result = 1;
       }
+      set_servos(0,0,0,0);
       return result;
     }
     delay(50);
-    actions++;
   }
   set_servos(0, 0, 0, 0); // Stop servos
   return 0;
@@ -403,7 +430,7 @@ int seek_end(void) {
 
   // Prepare for movement
   int x = find_offset(LINE_THRESHOLD);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO); // Retract arm fully
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX); // Retract arm fully
   delay(GRAB_INTERVAL);
 
   // Search until end
@@ -416,19 +443,19 @@ int seek_end(void) {
   while (x != 255)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
-      set_servos(20, -10, 20, -10);
+      set_servos(30, -20, 30, -20);
     }
     else if (x == -2) {
       set_servos(20, 20, 20, 20);
     }
     else if (x == 1) {
-      set_servos(10, -20, 10, -20);
+      set_servos(20, -30, 20, -30);
     }
     else if (x == 2) {
       set_servos(-20, -20, -20, -20);
     }
     else if (x == 0) {
-      set_servos(15, -15, 15, -15);
+      set_servos(30, -30, 30, -30);
     }
     delay(50);
   }
@@ -485,6 +512,7 @@ int grab(void) {
 }
 
 int finish_run(void) {
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   set_servos(20, -20, 20, -20); // move forward one space
   delay(STEP_INTERVAL);
   set_servos(25, 25, 25, 25); // turn right 90 degrees
