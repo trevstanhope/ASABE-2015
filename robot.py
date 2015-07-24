@@ -115,6 +115,7 @@ class Robot:
         if self.VERBOSE: self.pretty_print('ZMQ', 'Pushing request to server ...')
         try:
             last_action = [key for key, value in self.ACTIONS.iteritems() if value == status['command']][0]
+            bgr = self.bgr
             request = {
                 'type' : 'request',
                 'last_action' : last_action,
@@ -122,7 +123,7 @@ class Robot:
                 'at_end' : status['at_end'],
                 'at_plant' : status['at_plant'],
                 'pass_num' : status['pass_num'],
-                'bgr' : self.bgr
+                'bgr' : bgr
             }
             dump = json.dumps(request)
             self.socket.send(dump)
