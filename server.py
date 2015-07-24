@@ -269,7 +269,7 @@ class Server:
             greenlow = np.array([30,30,0]) 
             greenhigh = np.array([100,255,255])
             yellowlow = np.array([15,128,128])
-            yellowhigh = np.array([45, 255, 255])
+            yellowhigh = np.array([40, 255, 255])
             brownlow = np.array([0,0,0])
             brownhigh = np.array([20,255,150])
             brownlow1 = np.array([150,0,0])
