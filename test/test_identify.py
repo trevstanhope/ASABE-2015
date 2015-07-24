@@ -8,7 +8,7 @@ SATURATION = 1.0
 BRIGHTNESS = 0.5
 CONTRAST = 0.5
 NUM_FLUSH = 60
-TALL_THRESHOLD = 200 # pixels
+TALL_THRESHOLD = 220 # pixels
 try:
     FILENAME = sys.argv[1]
     bgr=cv2.imread(FILENAME)
@@ -57,7 +57,7 @@ detected_areas[0] = (x, y, w, h)
 Needs high pass to remove low saturation yellow-white
 """
 yellowlow = np.array([15,128,128])
-yellowhigh = np.array([45, 255, 255])
+yellowhigh = np.array([40, 255, 255])
 hsv = cv2.cvtColor(bgr,cv2.COLOR_BGR2HSV)
 mask = cv2.inRange(hsv,yellowlow,yellowhigh)
 cv2.imshow('',mask)
