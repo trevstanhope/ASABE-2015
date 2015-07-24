@@ -87,7 +87,7 @@ class Robot:
     def init_cam(self):
         if self.VERBOSE: self.pretty_print("CTRL", "Initializing Cameras ...")
         try:
-            self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3)).tolist()
+            self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
             self.camera = cv2.VideoCapture(self.CAMERA_INDEX)
             self.camera.set(cv.CV_CAP_PROP_FRAME_WIDTH, self.CAMERA_WIDTH)
             self.camera.set(cv.CV_CAP_PROP_FRAME_HEIGHT, self.CAMERA_HEIGHT)
@@ -106,9 +106,9 @@ class Robot:
             time.sleep(0.01)
             (s, bgr) = self.camera.read()
             if s:
-                self.bgr = bgr.tolist()
+                self.bgr = bgr
             else:
-                self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3)).tolist()
+                self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
     
     ## Send request to server
     def request_action(self, status):
@@ -123,7 +123,7 @@ class Robot:
                 'at_end' : status['at_end'],
                 'at_plant' : status['at_plant'],
                 'pass_num' : status['pass_num'],
-                'bgr' : bgr
+                'bgr' : bgr.tolist()
             }
             dump = json.dumps(request)
             self.socket.send(dump)
