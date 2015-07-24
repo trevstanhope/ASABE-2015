@@ -34,7 +34,7 @@ const int UNKNOWN_COMMAND = '?';
 const int LINE_THRESHOLD = 150; // i.e. 2.5 volts
 const int DISTANCE_THRESHOLD = 37; // cm
 const int FAR_THRESHOLD = 40; // cm
-const int ACTIONS_PER_PLANT = 350;
+const int ACTIONS_PER_PLANT = 50;
 const int DISTANCE_SAMPLES = 15;
 const int OFFSET_SAMPLES = 1;
 
@@ -413,6 +413,7 @@ int seek_plant(void) {
         }
         delay(50);
       }
+      Serial.println(actions);
       int result = round(actions / float(ACTIONS_PER_PLANT));
       if (result == 0) {
         result = 1;

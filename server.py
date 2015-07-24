@@ -215,7 +215,7 @@ class Server:
                     action = 'jump' # jump if at near end
                     self.row_num = self.row_num + 1
                 elif request['at_plant'] != 0:
-                    (color, height, bgr2) = self.identify_plant(request['bgr'])
+                    (color, height, bgr2) = self.identify_plant(np.array(request['bgr'], np.uint8))
                     self.pretty_print('DECIDE', 'Color: %s' % color)
                     self.pretty_print('DECIDE', 'Height: %s' % height)
                     self.bgr = bgr2
@@ -318,7 +318,7 @@ class Server:
             heights = ['tall', 'short']
             i = randint(0,2)
             j = randint(0,1)
-            color = colors[i]
+            color = 'blue'
             height = heights[j]
         return color, height, bgr
     def add_plant(self, row, plant, color, height):
@@ -548,6 +548,8 @@ class GUI(object):
                         color = yellow
                     if c == 'brown':
                         color = brown
+                    if c == 'blue':
+                        color = (255,0,0)
                     center = ((W - (((p-1) * x) + x_pad)), (H - (((r-1) * y) + y_pad)))
                     cv2.circle(board_bgr, center, radius, color, thickness=15)
             self.board_pix = gtk.gdk.pixbuf_new_from_array(board_bgr, gtk.gdk.COLORSPACE_RGB, 8)
