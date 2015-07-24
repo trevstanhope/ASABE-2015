@@ -187,7 +187,6 @@ class Server:
         self.pretty_print("DECIDE", "At End: %d" % self.at_end)
         self.pretty_print("DECIDE", "At Plant: %d" % self.at_plant)
         self.pretty_print("DECIDE", "Pass Num: %d" % self.pass_num)
-        self.bgr = np.array(request['bgr'], np.uint8)
         ## If paused
         if self.running == False:
             if request['last_action'] == 'clear':
