@@ -305,8 +305,13 @@ int align(void) {
   
   // Pull forward onto line
   int j = 0;
-  while (abs(find_offset(LINE_THRESHOLD)) > 1) {
-    set_servos(10, -10, 10, -10);
+  while (abs(find_offset(LINE_THRESHOLD)) > 2) {
+    if (find_offset(LINE_THRESHOLD) == -255) {
+      set_servos(-10, 10, -10, 10);
+    }
+    else {
+      set_servos(10, -10, 10, -10);
+    }
     find_distance();
   }
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
@@ -397,7 +402,7 @@ int seek_plant(void) {
         break;
       }
     }
-    if ((find_distance() < DISTANCE_THRESHOLD) && (at_plant < 5)) {
+    if ((find_distance() < DISTANCE_THRESHOLD) && (at_plant < 5) && (actions > 35)) {
       for (int k = 0; k<15; k++) { 
         x = find_offset(LINE_THRESHOLD);
         if (x == -1) {
