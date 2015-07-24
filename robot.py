@@ -106,9 +106,9 @@ class Robot:
             time.sleep(0.1)
             (s, bgr) = self.camera.read()
             if s:
-                self.bgr = bgr
+                self.bgr = bgr.tolist()
             else:
-                self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
+                self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3)).tolist()
     
     ## Send request to server
     def request_action(self, status):
@@ -122,7 +122,7 @@ class Robot:
                 'at_end' : status['at_end'],
                 'at_plant' : status['at_plant'],
                 'pass_num' : status['pass_num'],
-                'bgr' : self.bgr.tolist()
+                'bgr' : self.bgr
             }
             dump = json.dumps(request)
             self.socket.send(dump)
