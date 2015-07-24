@@ -87,7 +87,7 @@ class Robot:
     def init_cam(self):
         if self.VERBOSE: self.pretty_print("CTRL", "Initializing Cameras ...")
         try:
-            self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3))
+            self.bgr = np.zeros((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 3)).tolist()
             self.camera = cv2.VideoCapture(self.CAMERA_INDEX)
             self.camera.set(cv.CV_CAP_PROP_FRAME_WIDTH, self.CAMERA_WIDTH)
             self.camera.set(cv.CV_CAP_PROP_FRAME_HEIGHT, self.CAMERA_HEIGHT)
