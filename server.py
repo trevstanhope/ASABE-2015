@@ -195,7 +195,12 @@ class Server:
                 action = 'clear'
         ## If clock running out
         elif self.clock <= self.GIVE_UP_TIME: # if too little time
-            action = 'finish'
+            if self.pass_num == 1:
+                action = 'turn'
+            elif self.at_end == 1:
+                action = 'finish'
+            else:
+                action = 'end'
         ## If searching for plants 
         elif (self.row_num < self.NUM_ROWS) or (self.plant_num < self.NUM_PLANTS):
             if self.row_num == 0:
