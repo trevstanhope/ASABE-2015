@@ -243,7 +243,6 @@ int align(void) {
    */
 
   // Wiggle onto line
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   int x = find_offset(LINE_THRESHOLD);
   int i = 0;
   while (i <= 20) {
@@ -310,6 +309,7 @@ int align(void) {
     set_servos(10, -10, 10, -10);
     find_distance();
   }
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   set_servos(0, 0, 0, 0); // Halt 
   return 0;
 }
@@ -381,7 +381,11 @@ int seek_plant(void) {
       actions++;
     }
     else if (x == -255) {
-      set_servos(10, -10, 10, -10);
+      set_servos(-10, 10, -10, 10);
+      while (abs(find_offset(LINE_THRESHOLD)) > 2) {
+        delay(50);
+      }        
+      break;
     }
     else if (x == 255) {
       set_servos(10, -10, 10, -10);
@@ -413,7 +417,6 @@ int seek_plant(void) {
         }
         delay(50);
       }
-      Serial.println(actions);
       int result = round(actions / float(ACTIONS_PER_PLANT));
       if (result == 0) {
         result = 1;
@@ -441,7 +444,7 @@ int seek_end(void) {
       set_servos(20, -20, 20, -20);
     }
   }
-  while (x != 255)  {
+  while (true)  {
     x = find_offset(LINE_THRESHOLD);
     if (x == -1) {
       set_servos(30, -20, 30, -20);
@@ -457,6 +460,16 @@ int seek_end(void) {
     }
     else if (x == 0) {
       set_servos(30, -30, 30, -30);
+    }
+    else if (x == 255) {
+      set_servos(10, -10, 10, -10);
+      delay(500);
+      x = find_offset(LINE_THRESHOLD);
+      if (x == -255) {
+        set_servos(-10, 10, -10, 10);
+        delay(500);
+        break;
+      }
     }
     delay(50);
   }
@@ -490,8 +503,8 @@ int turn(void) {
   set_servos(20, -20, 20, -20);
   delay(HALFSTEP_INTERVAL);
   set_servos(20, 30, 20, 30);
-  delay(TURN45_INTERVAL);
-  while (abs(find_offset(LINE_THRESHOLD)) > 1) {
+  delay(TURN90_INTERVAL);
+  while (abs(find_offset(LINE_THRESHOLD)) > 0) {
     set_servos(20, 30, 20, 30);
   }
   set_servos(0, 0, 0, 0);
@@ -553,9 +566,6 @@ int find_offset(int threshold) {
   }
   else if ((l < threshold) && (c < threshold) && (r > threshold)) {
     x = -2; // very off
-  }
-  else if ((l > threshold) && (c > threshold) && (r > threshold)) {
-    x = 255; // at end
   }
   else if ((l < threshold) && (c < threshold) && (r < threshold)) {
     x = -255; // off entirely

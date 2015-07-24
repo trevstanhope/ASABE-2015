@@ -103,7 +103,7 @@ class Robot:
     def capture_image(self):
         if self.VERBOSE: self.pretty_print("CTRL", "Capturing image ...")
         while True:
-            time.sleep(0.05)
+            time.sleep(0.1)
             (s, bgr) = self.camera.read()
             if s:
                 self.bgr = bgr

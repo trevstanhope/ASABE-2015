@@ -30,7 +30,7 @@
     "CAMERA_CONTRAST" : 0.5,
     "CAMERA_TALL_THRESHOLD" : 220,
     "GUI_BOARD_IMAGE" : "static/board.jpg",
-    "GUI_CAMERA_IMAGE" : "static/camera.jpg",
+    "GUI_CAMERA_IMAGE" : "static/camera_320x240.jpg",
     "GUI_WINDOW_X" : 1000,
     "GUI_WINDOW_Y" : 700,
     "GUI_LABEL_PASS" : "Pass Direction: %d",
