@@ -268,35 +268,77 @@ class Server:
         """
         if self.VERBOSE: self.pretty_print("CV2", "Identifying plant phenotype ...")
         try:
-            detected_areas = [(0,0,0,0,0)] * 3
+            # Blur image
             bgr = cv2.medianBlur(bgr, 5)
-            hsv = cv2.cvtColor(bgr,cv2.COLOR_BGR2HSV)
-            greenlow = np.array([30,30,0]) 
-            greenhigh = np.array([100,255,255])
-            yellowlow = np.array([15,128,128])
-            yellowhigh = np.array([40, 255, 255])
-            brownlow = np.array([0,0,0])
-            brownhigh = np.array([20,255,150])
-            brownlow1 = np.array([150,0,0])
-            brownhigh1 = np.array([180,255,150])
-            green_mask = cv2.inRange(hsv, greenlow, greenhigh)
-            yellow_mask = cv2.inRange(hsv, yellowlow, yellowhigh)
-            brown_mask1 = cv2.inRange(hsv, brownlow, brownhigh)
-            brown_mask2 = cv2.inRange(hsv, brownlow1, brownhigh1)
-            brown_mask = brown_mask1 + brown_mask2
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-            masks = [green_mask, yellow_mask, brown_mask]
-            for i in range(len(masks)):
-                m = masks[i]
-                opening = cv2.morphologyEx(m, cv2.MORPH_OPEN, kernel)
-                closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
-                ret,thresh = cv2.threshold(closing,127,255,0)
-                contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(6,6))
+            hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+            detected_areas = [ (0,0,0,0) ] * 3
+            
+            ## Green
+            try:
+                green_low = np.array([25, 20, 0]) 
+                green_high = np.array([75, 255, 128])
+                green_mask = cv2.inRange(hsv, green_low, green_high)
+                green_invmask = cv2.bitwise_not(green_mask)
+                green_closed = cv2.morphologyEx(green_invmask, cv2.MORPH_CLOSE, thin_kernel)
+                green_eroded = cv2.erode(green_closed, fat_kernel)
+                green_output = cv2.bitwise_not(green_eroded)
+                ret,thresh = cv2.threshold(green_output, 127, 255, 0)
+                contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                 areas = [cv2.contourArea(c) for c in contours]
                 max_index = np.argmax(areas) # Find the index of the largest contour
                 cnt = contours[max_index]
                 x,y,w,h = cv2.boundingRect(cnt)
-                detected_areas[i] = (x, y, w, h)
+                detected_areas[0] = (x, y, w, h)
+            except Exception as e:
+                self.pretty_print('CV', 'Error: %s' % str(e))
+            
+            ## Yellow
+            try:
+                yellow_low = np.array([15, 128, 115])
+                yellow_high = np.array([35, 255, 255])
+                yellow_mask = cv2.inRange(hsv, yellow_low, yellow_high)
+                yellow_invmask = cv2.bitwise_not(yellow_mask)
+                yellow_closed = cv2.morphologyEx(yellow_invmask, cv2.MORPH_CLOSE, thin_kernel)
+                yellow_eroded = cv2.erode(yellow_closed, fat_kernel)
+                yellow_output = cv2.bitwise_not(yellow_eroded)
+                ret,thresh = cv2.threshold(yellow_output, 127, 255, 0)
+                contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+                areas = [cv2.contourArea(c) for c in contours] 
+                max_index = np.argmax(areas) # Find the index of the largest contour
+                cnt = contours[max_index]
+                x,y,w,h = cv2.boundingRect(cnt)
+                detected_areas[1] = (x, y, w, h)
+            except Exception as e:
+                self.pretty_print('CV', 'Error: %s' % str(e))
+                
+            ## Brown
+            try:
+                brown_low_1 = np.array([0,0,0])
+                brown_high_1 = np.array([25,255,150])
+                brown_low_2 = np.array([160,0,0])
+                brown_high_2 = np.array([180,255,150])
+                brown_grey = cv2.cvtColor(bgr,cv2.COLOR_BGR2GRAY)
+                brown_mask_1 = cv2.inRange(hsv, brown_low_1, brown_high_1)
+                brown_mask_2 = cv2.inRange(hsv, brown_low_2, brown_high_2)
+                brown_mask = brown_mask_1 + brown_mask_2
+                brown_closed = cv2.morphologyEx(brown_mask, cv2.MORPH_CLOSE, fat_kernel)
+                brown_cut = cv2.bitwise_and(brown_grey, brown_closed)
+                brown_cut[brown_cut == 0] = 255
+                brown_thresh = cv2.threshold(brown_cut, 80, 255, cv2.THRESH_BINARY)[1]
+                brown_invmask = cv2.bitwise_not(brown_thresh)
+                brown_eroded = cv2.erode(brown_invmask, thin_kernel)
+                ret, thresh = cv2.threshold(brown_eroded, 127, 255, 0)
+                contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+                areas = [cv2.contourArea(c) for c in contours] # Find the index of the largest contour
+                max_index = np.argmax(areas)
+                cnt = contours[max_index]
+                x,y,w,h = cv2.boundingRect(cnt)
+                detected_areas[2] = (x, y, w, h)
+            except Exception as e:
+                self.pretty_print('CV', 'Error: %s' % str(e))
+    
+            # Find most likely
             areas = [w*h for (x, y, w, h) in detected_areas]
             max_area = max(areas)
             i = np.argmax(areas)
@@ -318,12 +360,12 @@ class Server:
                 height = 'short'
             cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
         except Exception as e:
-            self.pretty_print("CV", "Error: %s" % str(e))
+            self.pretty_print("CV", "ERROR: %s" % str(e))
             colors = ['green', 'yellow', 'brown']
             heights = ['tall', 'short']
             i = randint(0,2)
             j = randint(0,1)
-            color = 'blue'
+            color = color[i]
             height = heights[j]
         return color, height, bgr
     def add_plant(self, row, plant, color, height):
