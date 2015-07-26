@@ -196,6 +196,7 @@ class Server:
                 action = 'clear'
         ## If clock running out
         elif self.clock <= self.GIVE_UP_TIME and (self.pass_num == 2): # if too little time
+            self.pretty_print("DECIDE", "Time almost up! Proceeding to end!")
             if (self.last_action == 'finish') or (self.last_action == 'wait'):
                 action = 'wait'
             elif self.at_end == 1:
@@ -255,12 +256,13 @@ class Server:
                 action = 'wait'
         ## If at last row or reached 20 plants
         else:
-            if (request['last_action'] == 'seek') and (self.at_end != 1) and (self.pass_num == 2):
-                action = 'end' # if part-way along final row (i.e. not at end #1)
-            elif (request['last_action'] == 'seek') and (self.at_end == 1) and (self.pass_num == 2):
+            self.pretty_print("DECIDE", "20 plants and/or 4 rows! Proceeding to end!")
+            if self.at_end == 2:
+                action = 'turn'
+            elif self.at_end == 1:
                 action = 'finish' # if part-way along final row (i.e. not at end #1)
-            elif request['last_action'] == 'end':
-                action = 'finish' # if at end of final row
+            elif self.at_end == 0:
+                action = 'end'
             else:
                 action = 'wait' # if last plant was row 4, plant 5 (i.e. 20 plants in 20 positions)
         return action

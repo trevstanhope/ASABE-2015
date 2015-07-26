@@ -216,7 +216,7 @@ int begin_run(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
 
   // Get past black square
-  set_servos(4, -35, 4, -35); // Wide left sweep
+  set_servos(4, -37, 4, -37); // Wide left sweep
   delay(3000);
 
   // Run until line reached
@@ -490,7 +490,7 @@ int seek_end(void) {
 
 int jump(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
-  set_servos(10, -45, 10, -45); // Wide left sweep
+  set_servos(8, -45, 8, -45); // Wide left sweep
   delay(3000);
   while (abs(find_offset(LINE_THRESHOLD)) > 2) {
     delay(20); // Run until line reached
