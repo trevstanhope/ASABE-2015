@@ -195,14 +195,16 @@ class Server:
                 action = 'clear'
         ## If clock running out
         elif self.clock <= self.GIVE_UP_TIME: # if too little time
-            if self.pass_num == 1:
+            if (self.last_action == 'finish') or (self.last_action == 'wait'):
+                action = 'wait'
+            elif self.pass_num == 1:
                 action = 'turn'
             elif self.at_end == 1:
                 action = 'finish'
             else:
                 action = 'end'
         ## If searching for plants 
-        elif (self.row_num < self.NUM_ROWS) and (self.plant_num < self.NUM_PLANTS):
+        elif (self.row_num <= self.NUM_ROWS) and (self.plant_num < self.NUM_PLANTS):
             if self.row_num == 0:
                 action = 'begin' # begin if first action
                 self.row_num = 1
@@ -217,8 +219,12 @@ class Server:
                 if request['at_end'] == 2:
                     action = 'turn' # turn if at far end
                 elif request['at_end'] == 1:
-                    action = 'jump' # jump if at near end
-                    self.row_num = self.row_num + 1
+                    if self.row_num == self.NUM_ROWS:
+                        action = 'finish' # finish if at end of last row
+                        self.row_num = 0
+                    else:
+                        action = 'jump' # jump if at near end
+                        self.row_num = self.row_num + 1
                 elif request['at_plant'] != 0:
                     (color, height, bgr2) = self.identify_plant(np.array(request['bgr'], np.uint8))
                     self.pretty_print('DECIDE', 'Color: %s' % color)
@@ -257,7 +263,7 @@ class Server:
             elif request['last_action'] == 'end':
                 action = 'finish' # if at end of final row
             else:
-                action = 'finish' # if last plant was row 4, plant 5 (i.e. 20 plants in 20 positions)
+                action = 'wait' # if last plant was row 4, plant 5 (i.e. 20 plants in 20 positions)
         return action
     def identify_plant(self, bgr):
         """
@@ -272,6 +278,7 @@ class Server:
             bgr = cv2.medianBlur(bgr, 5)
             thin_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(8,8))
             fat_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(10,10))
+            brown_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(5,5))
             hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
             detected_areas = [ (0,0,0,0) ] * 3
             
@@ -323,12 +330,12 @@ class Server:
                 brown_mask_1 = cv2.inRange(hsv, brown_low_1, brown_high_1)
                 brown_mask_2 = cv2.inRange(hsv, brown_low_2, brown_high_2)
                 brown_mask = brown_mask_1 + brown_mask_2
-                brown_closed = cv2.morphologyEx(brown_mask, cv2.MORPH_CLOSE, fat_kernel)
+                brown_closed = cv2.morphologyEx(brown_mask, cv2.MORPH_CLOSE, brown_kernel)
                 brown_cut = cv2.bitwise_and(brown_grey, brown_closed)
                 brown_cut[brown_cut == 0] = 255
                 brown_thresh = cv2.threshold(brown_cut, 80, 255, cv2.THRESH_BINARY)[1]
                 brown_invmask = cv2.bitwise_not(brown_thresh)
-                brown_eroded = cv2.erode(brown_invmask, thin_kernel)
+                brown_eroded = cv2.erode(brown_invmask, brown_kernel)
                 ret, thresh = cv2.threshold(brown_eroded, 127, 255, 0)
                 contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
                 areas = [cv2.contourArea(c) for c in contours] # Find the index of the largest contour
@@ -353,13 +360,14 @@ class Server:
             elif i == 2:
                 c = (0,87,115)
                 color = 'brown'
-            if w*h > self.CAMERA_TALL_THRESHOLD:
+            if h > self.CAMERA_TALL_THRESHOLD:
                 height = 'tall'
             else:
                 height = 'short'
             cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
         except Exception as e:
             self.pretty_print("CV", "ERROR: %s" % str(e))
+            self.pretty_print("CV", "RANDOMLY ESTIMATING ...")
             colors = ['green', 'yellow', 'brown']
             heights = ['tall', 'short']
             i = randint(0,2)

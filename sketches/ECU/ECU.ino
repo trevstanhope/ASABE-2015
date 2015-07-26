@@ -8,7 +8,7 @@
 const int WAIT_INTERVAL = 100;
 const int BEGIN_INTERVAL = 2000;
 const int TURN45_INTERVAL = 1000;
-const int TURN90_INTERVAL = 2800;
+const int TURN90_INTERVAL = 3000;
 const int GRAB_INTERVAL = 1000;
 const int TAP_INTERVAL = 500;
 const int STEP_INTERVAL = 2200; // interval to move fully into finishing square
@@ -28,15 +28,17 @@ const int FINISH_COMMAND  = 'F';
 const int WAIT_COMMAND = 'W';
 const int REPEAT_COMMAND = 'R';
 const int CLEAR_COMMAND = 'C';
+const int PING_COMMAND = 'P';
 const int UNKNOWN_COMMAND = '?';
 
 /* --- Constants --- */
 const int LINE_THRESHOLD = 150; // i.e. 2.5 volts
-const int DISTANCE_THRESHOLD = 37; // cm
-const int FAR_THRESHOLD = 40; // cm
-const int ACTIONS_PER_PLANT = 50;
-const int DISTANCE_SAMPLES = 15;
+const int DISTANCE_THRESHOLD = 36; // cm
+const int FAR_THRESHOLD = 38; // cm
+const int ACTIONS_PER_PLANT = 50; // was 60
+const int DISTANCE_SAMPLES = 15; // was 15
 const int OFFSET_SAMPLES = 1;
+const int MIN_ACTIONS = 25; // was 35
 
 /* --- I/O Pins --- */
 const int LEFT_LINE_PIN = A0;
@@ -180,6 +182,10 @@ void loop() {
       result = finish_run();
       break;
     case REPEAT_COMMAND:
+      break;
+    case PING_COMMAND:
+      command = PING_COMMAND;
+      result = ping();
       break;
     case WAIT_COMMAND:
       command = WAIT_COMMAND;
@@ -402,7 +408,7 @@ int seek_plant(void) {
         break;
       }
     }
-    if ((find_distance() < DISTANCE_THRESHOLD) && (at_plant < 5) && (actions > 35)) {
+    if ((find_distance() <= DISTANCE_THRESHOLD) && (at_plant < 5) && (actions > MIN_ACTIONS)) {
       for (int k = 0; k<15; k++) { 
         x = find_offset(LINE_THRESHOLD);
         if (x == -1) {
@@ -549,6 +555,13 @@ int finish_run(void) {
 int wait(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   delay(WAIT_INTERVAL);
+  return 0;
+}
+
+int ping(void) {
+  for (int i = 0; i < DISTANCE_SAMPLES; i++) {
+    find_distance();
+  }
   return 0;
 }
 
