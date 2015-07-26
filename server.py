@@ -270,7 +270,8 @@ class Server:
         try:
             # Blur image
             bgr = cv2.medianBlur(bgr, 5)
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(6,6))
+            thin_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(8,8))
+            fat_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(10,10))
             hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
             detected_areas = [ (0,0,0,0) ] * 3
             
@@ -352,8 +353,6 @@ class Server:
             elif i == 2:
                 c = (0,87,115)
                 color = 'brown'
-            else:
-                exit(1)
             if w*h > self.CAMERA_TALL_THRESHOLD:
                 height = 'tall'
             else:
