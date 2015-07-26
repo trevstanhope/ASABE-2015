@@ -354,7 +354,7 @@ class Server:
                 color = 'brown'
             else:
                 exit(1)
-            if h > self.CAMERA_TALL_THRESHOLD:
+            if w*h > self.CAMERA_TALL_THRESHOLD:
                 height = 'tall'
             else:
                 height = 'short'
