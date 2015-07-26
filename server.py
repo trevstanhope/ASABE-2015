@@ -184,6 +184,7 @@ class Server:
         self.at_end = request['at_end']
         self.pass_num = request['pass_num']
         self.at_plant = request['at_plant']
+        self.last_action = request['last_action']
         self.pretty_print("DECIDE", "At End: %d" % self.at_end)
         self.pretty_print("DECIDE", "At Plant: %d" % self.at_plant)
         self.pretty_print("DECIDE", "Pass Num: %d" % self.pass_num)
@@ -194,11 +195,9 @@ class Server:
             else:
                 action = 'clear'
         ## If clock running out
-        elif self.clock <= self.GIVE_UP_TIME: # if too little time
+        elif self.clock <= self.GIVE_UP_TIME and (self.pass_num == 2): # if too little time
             if (self.last_action == 'finish') or (self.last_action == 'wait'):
                 action = 'wait'
-            elif self.pass_num == 1:
-                action = 'turn'
             elif self.at_end == 1:
                 action = 'finish'
             else:
