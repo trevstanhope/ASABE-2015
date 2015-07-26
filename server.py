@@ -202,7 +202,7 @@ class Server:
             else:
                 action = 'end'
         ## If searching for plants 
-        elif (self.row_num < self.NUM_ROWS) or (self.plant_num < self.NUM_PLANTS):
+        elif (self.row_num < self.NUM_ROWS) and (self.plant_num < self.NUM_PLANTS):
             if self.row_num == 0:
                 action = 'begin' # begin if first action
                 self.row_num = 1
