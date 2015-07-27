@@ -320,7 +320,6 @@ int align(void) {
     }
     find_distance();
   }
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   set_servos(0, 0, 0, 0); // Halt 
   return 0;
 }
@@ -328,8 +327,7 @@ int align(void) {
 int seek_plant(void) {
 
   // Prepare for movement
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO); // Retract arm fully
-  delay(GRAB_INTERVAL);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO); 
   int x = find_offset(LINE_THRESHOLD);
   int d = find_distance();
   int actions = 0;
