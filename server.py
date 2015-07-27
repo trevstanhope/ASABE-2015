@@ -283,7 +283,7 @@ class Server:
             bgr = cv2.medianBlur(bgr, 5)
             thin_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(8,8))
             fat_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(10,10))
-            brown_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(5,5))
+            brown_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(10,10))
             hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
             detected_areas = [ (0,0,0,0) ] * 3
             
@@ -365,16 +365,11 @@ class Server:
             elif i == 2:
                 c = (0,87,115)
                 color = 'brown'
-            if i == 2:
-                if w * h > 37500:
-                    height = 'tall'
-                else:
-                    height = 'short'
+            if h > self.CAMERA_TALL_THRESHOLD:
+                height = 'tall'
             else:
-                if h > self.CAMERA_TALL_THRESHOLD:
-                    height = 'tall'
-                else:
-                    height = 'short'
+                height = 'short'
+            # bgr = np.dstack((brown_eroded, brown_eroded, brown_eroded)) # remove
             cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
         except Exception as e:
             self.pretty_print("CV", "ERROR: %s" % str(e))

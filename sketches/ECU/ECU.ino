@@ -8,10 +8,10 @@
 const int WAIT_INTERVAL = 100;
 const int BEGIN_INTERVAL = 2000;
 const int TURN45_INTERVAL = 1000;
-const int TURN90_INTERVAL = 2900;
+const int TURN90_INTERVAL = 3000;
 const int GRAB_INTERVAL = 1000;
 const int TAP_INTERVAL = 500;
-const int STEP_INTERVAL = 2200; // interval to move fully into finishing square
+const int STEP_INTERVAL = 2400; // interval to move fully into finishing square
 const int HALFSTEP_INTERVAL = 1100; // interval to move fully into finishing square
 
 /* --- Serial / Commands --- */
@@ -32,7 +32,7 @@ const int PING_COMMAND = 'P';
 const int UNKNOWN_COMMAND = '?';
 
 /* --- Constants --- */
-const int LINE_THRESHOLD = 150; // i.e. 2.5 volts
+const int LINE_THRESHOLD = 500; // i.e. 2.5 volts
 const int DISTANCE_THRESHOLD = 36; // cm
 const int FAR_THRESHOLD = 38; // cm
 const int ACTIONS_PER_PLANT = 50; // was 60
@@ -491,19 +491,19 @@ int seek_end(void) {
 
 int jump(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
-  set_servos(8, -45, 8, -45); // Wide left sweep
+  set_servos(10, -45, 10, -45); // Wide left sweep
   delay(3000);
   while (abs(find_offset(LINE_THRESHOLD)) > 2) {
     delay(20); // Run until line reached
   }
   
   // Pull forward
-  set_servos(20, -20, 20, -20);
-  delay(1000);
+  set_servos(15, -15, 15, -15);
+  delay(HALFSTEP_INTERVAL);
   
   // Rotate towards the line
   set_servos(-20, -20, -20, -20);
-  while (abs(find_offset(LINE_THRESHOLD)) > 1) {
+  while (abs(find_offset(LINE_THRESHOLD)) > 2) {
     delay(20); // Run until line reached
   }
   set_servos(0,0,0,0);
@@ -524,16 +524,15 @@ int turn(void) {
 }
 
 int grab(void) {
-  for (int i = MICROSERVO_MIN; i < MICROSERVO_MAX; i++) {
+  for (int i = MICROSERVO_MIN; i < MICROSERVO_MAX + 50; i++) {
     pwm.setPWM(ARM_SERVO, 0, i);   // Grab block
+    //if (i % 2) {
+      //delay(1);
+    //}
   }
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 100 );
   delay(TAP_INTERVAL);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
-  delay(TAP_INTERVAL);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 100 );
-  delay(TAP_INTERVAL);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 10);
   delay(TAP_INTERVAL);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   delay(GRAB_INTERVAL);
@@ -544,11 +543,13 @@ int finish_run(void) {
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   set_servos(20, -20, 20, -20); // move forward one space
   delay(STEP_INTERVAL);
-  set_servos(25, 25, 25, 25); // turn right 90 degrees
+  set_servos(27, 27, 27, 27); // turn right 90 degrees
   delay(TURN90_INTERVAL); 
-  set_servos(60, -60, 60, -60); // move Forward
+  set_servos(20, -25, 20, -25); // turn right 90 degrees
+  delay(HALFSTEP_INTERVAL); // was STEP_INTERVAL on K-state board
+  set_servos(30, -30, 30, -30); // turn right 90 degrees
   while (find_offset(LINE_THRESHOLD) == -255) {
-    delay(100); // Go until finish square
+    delay(100);
   }
   set_servos(20, -20, 20, -20); // move forward one space
   delay(STEP_INTERVAL);
@@ -595,9 +596,13 @@ int find_offset(int threshold) {
   else if ((l > threshold) && (c > threshold) && (r > threshold)){
     x = 255;
   }
+  else if ((l > threshold) && (c < threshold) && (r > threshold)){
+    x = 255;
+  }
   else {
     x = 0;
   }
+  
   offset.add(x);
   int val = offset.getMedian();
   // Serial.println(val);
