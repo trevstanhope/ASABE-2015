@@ -8,7 +8,7 @@
 const int WAIT_INTERVAL = 100;
 const int BEGIN_INTERVAL = 2000;
 const int TURN45_INTERVAL = 1000;
-const int TURN90_INTERVAL = 3000;
+const int TURN90_INTERVAL = 2900;
 const int GRAB_INTERVAL = 1000;
 const int TAP_INTERVAL = 500;
 const int STEP_INTERVAL = 2200; // interval to move fully into finishing square
@@ -179,6 +179,9 @@ void loop() {
       break;
     case FINISH_COMMAND:
       command = FINISH_COMMAND;
+      at_end = 0;
+      at_plant = 0;
+      pass_num = 0;
       result = finish_run();
       break;
     case REPEAT_COMMAND:
@@ -523,13 +526,16 @@ int turn(void) {
 int grab(void) {
   for (int i = MICROSERVO_MIN; i < MICROSERVO_MAX; i++) {
     pwm.setPWM(ARM_SERVO, 0, i);   // Grab block
-    delay(1);
   }
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 100 );
   delay(TAP_INTERVAL);
   pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX);
   delay(TAP_INTERVAL);
-  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MIN);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 100 );
+  delay(TAP_INTERVAL);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_MAX - 10);
+  delay(TAP_INTERVAL);
+  pwm.setPWM(ARM_SERVO, 0, MICROSERVO_ZERO);
   delay(GRAB_INTERVAL);
   return 0;
 }

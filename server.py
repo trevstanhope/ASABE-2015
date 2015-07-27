@@ -257,7 +257,11 @@ class Server:
         ## If at last row or reached 20 plants
         else:
             self.pretty_print("DECIDE", "20 plants and/or 4 rows! Proceeding to end!")
-            if self.at_end == 2:
+            if self.last_action == 'finish':
+                action = 'wait'
+            if self.last_action == 'wait':
+                action = 'wait'
+            elif self.at_end == 2:
                 action = 'turn'
             elif self.at_end == 1:
                 action = 'finish' # if part-way along final row (i.e. not at end #1)
@@ -285,7 +289,7 @@ class Server:
             
             ## Green
             try:
-                green_low = np.array([25, 20, 0]) 
+                green_low = np.array([25, 20, 5]) 
                 green_high = np.array([75, 255, 128])
                 green_mask = cv2.inRange(hsv, green_low, green_high)
                 green_invmask = cv2.bitwise_not(green_mask)
@@ -361,10 +365,16 @@ class Server:
             elif i == 2:
                 c = (0,87,115)
                 color = 'brown'
-            if h > self.CAMERA_TALL_THRESHOLD:
-                height = 'tall'
+            if i == 2:
+                if w * h > 37500:
+                    height = 'tall'
+                else:
+                    height = 'short'
             else:
-                height = 'short'
+                if h > self.CAMERA_TALL_THRESHOLD:
+                    height = 'tall'
+                else:
+                    height = 'short'
             cv2.rectangle(bgr,(x,y),(x+w,y+h), c, 2) # Draw the rectangle
         except Exception as e:
             self.pretty_print("CV", "ERROR: %s" % str(e))
